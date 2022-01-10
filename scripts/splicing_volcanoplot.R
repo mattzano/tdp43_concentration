@@ -1,7 +1,3 @@
-input_splicing <- fread(file.path(here::here(), "data", "ControlControl-ControlTDP43KD.csv"))
-input_splicing <- separate_rows(ControlControl_ControlTDP43KD, c(mean_dpsi_per_lsv_junction, probability_changing, probability_non_changing, ControlControl_mean_psi, ControlTDP43KD_mean_psi, lsv_type, de_novo_junctions, junctions_coords), 
-                                               sep = c(";"), convert = T)
-
 splicing_dots_tables_function <- function(input_splicing) {
   splicing_dots_tables <- input_splicing %>% 
   mutate(junction_name = case_when(gene_name %in% c("UNC13A","AGRN",
