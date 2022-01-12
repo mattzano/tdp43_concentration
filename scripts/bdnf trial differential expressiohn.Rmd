@@ -18,40 +18,64 @@ library(PCAtools)
 library(clusterProfiler)
 library(org.Hs.eg.db)
 library(enrichplot)
+
+source(here::here('scripts','feature_count','create_feature_count_table.R'))
+source(here::here('scripts','feature_count','make_deseq_dfs.R'))
+source(here::here('scripts','feature_count','run_standard_deseq.R'))
+source(here::here('scripts','feature_count','make_volcano_plot.R'))
+source(here::here('scripts','splicing_volcanoplot.R'))
 ```
 
 this organizes all the data from the many .bam files and creates one data frame you can work with,
 then runs the make_deseq_dfs() function and run_standard_deseq() and eventually make graphs
 ```{r}
-source(here::here('scripts','feature_count','create_feature_count_table.R'))
 featureCounts <- create_feature_count_table("/Users/matteozanovello/Documents/phd/research_lines/tdp43_concentration/data/feature_count") #change here!!
+#my_df <- make_deseq_dfs(featureCounts, grep_pattern = "", base_grep = "NT", contrast_grep = "DOX")
 
-source(here::here('scripts','feature_count','make_deseq_dfs.R'))
-my_df <- make_deseq_dfs(featureCounts, grep_pattern = "", base_grep = "NT", contrast_grep = "DOX")
-
-source(here::here('scripts','feature_count','run_standard_deseq.R'))
-my.dds <- run_standard_deseq("/Users/matteozanovello/Documents/phd/research_lines/tdp43_concentration/data/feature_count", 
+grepper <- c("a", 
+             "b", 
+             "c", 
+             "f", 
+             "h"
+             )
+names(grepper) <- c("dox00125", 
+                    "dox00187", 
+                    "dox0021", 
+                    "dox0025", 
+                    "dox0075"
+                    )
+for (j in grepper) {
+my.dds <- run_standard_deseq("/Users/matteozanovello/Documents/phd/research_lines/tdp43_concentration/data/feature_count", #change here!!
                              base_grep = "NT",
                              contrast_grep = "DOX",  
-                             grep_pattern = "",
+                             grep_pattern = j,
                              baseName = "Untreated",
                              contrastName = 'TDP43KD')
 
-source(here::here('scripts','feature_count','make_volcano_plot.R'))
-label_significant(my.dds$results_table, log2FoldCut = 2, log10padj = 5)
+bbb <- label_significant(my.dds$results_table, log2FoldCut = 2, log10padj = 10) + annotate("text", x=4, y=-0.25, label=names(j))
+plot(bbb)
+}
 ```
 
-#splicing volcano
+splicing volcano
 ```{r}
-source(here::here('scripts','splicing_volcanoplot.R'))
-input_splicing <- fread(file.path(here::here(), "data", "noDox-dox00187.csv"))
-input_splicing <- separate_rows(input_splicing, c(mean_dpsi_per_lsv_junction, probability_changing, 
-                                                                 probability_non_changing, noDox_mean_psi, 
-                                                                 dox00187_mean_psi, lsv_type, de_novo_junctions, 
-                                                                 junctions_coords), sep = c(";"), convert = T)
 
-splicing_dots_tables_function(input_splicing)
+base <- "noDox"
+contrast <- c("dox00125", 
+              "dox00187", 
+              "dox0021", 
+              "dox0025", 
+              "dox0075"
+              )
+for (i in contrast) {
+    input <- paste(base, i, sep = "-")
+    input_csv <- paste(input, "csv", sep = ".")
+input_splicing <- fread(file.path(here::here(), "data", input_csv))
+input_splicing <- separate_rows(input_splicing, c(names(input_splicing[,c(4:9,12,15)])), sep  = c(";"), convert = T)
 
+a <- splicing_dots_tables_function(input_splicing) #+ annotate("text", x=0.9, y=0.1, label=i)
+plot(a)
+}
 ```
 
 This is the vignette for the PCAtools package
@@ -61,21 +85,21 @@ We're going to put the "ensgene" into a 'rowname' and then do the PCA analysis u
 Now I'm going to write this using the pipe operator "%>%". Your "hot key" to type that in is: Ctrl + Shift + M
 ```{r}
 bdnf_counts <- featureCounts
-colnames(bdnf_counts) <- c("ensgene", 
-                           "NT_0_1", "NT_0_2", "NT_0_3", 
-                           #"DOX_0.0125_1", "DOX_0.0125_2", "DOX_0.0125_3",
+colnames(bdnf_counts) <- c("ensgene",
+                           "DOX_0.0125_1", "DOX_0.0125_2", "DOX_0.0125_3",
                            "DOX_0.0187_1", "DOX_0.0187_2", "DOX_0.0187_3",
-                           #"DOX_0.021_1", "DOX_0.021_2", "DOX_0.021_3", 
-                           #"DOX_0.025_1", "DOX_0.025_2", "DOX_0.025_3", 
-                           #"DOX_0.075_1", "DOX_0.075_2", 
+                           "DOX_0.021_1", "DOX_0.021_2", "DOX_0.021_3", 
+                           "DOX_0.025_1", "DOX_0.025_2", "DOX_0.025_3", 
+                           "DOX_0.075_1", "DOX_0.075_2", "DOX_0.075_3",
+                           "NT_0_1", "NT_0_2", "NT_0_3", 
                            "symbol")
 
-pca_table <- bdnf_counts[,1:7] %>% 
+pca_table <- bdnf_counts[,1:19] %>% 
     column_to_rownames('ensgene')
 
 path_to_meta_you_downloaded <-  "/Users/matteozanovello/Documents/phd/research_lines/tdp43_concentration/data/metadata.csv" #update this
 meta_df <- fread(path_to_meta_you_downloaded)
-meta_df <- meta_df[c(1:3,7:9)] #update this
+#meta_df <- meta_df[c(1:3,7:9)] #update this
 meta_df <- meta_df %>% 
     column_to_rownames('sample') 
 
@@ -93,8 +117,8 @@ PCAtools::eigencorplot(p, components = getComponents(p),
 We can do a biplot with the 2 PC's that are correlating
 ```{r}
 biplot(p,
-       x = "PC1", #0.72 with level
-       y = "PC6", #0.97 with condition
+       x = "PC4", #0.97 with level
+       y = "PC4", #0.79 with condition
        colby = c('level'))
 ```
 
@@ -137,15 +161,16 @@ geneList = sort(geneList, decreasing = TRUE)
 ggo <- groupGO(gene = names(geneList),
                OrgDb = org.Hs.eg.db,
                keyType = "SYMBOL",
-               ont = "CC",
+               ont = "MF",
                level = 3)
+cnetplot(ggo)
 ```
 
 ```{r}
 ego <- enrichGO(gene = names(geneList),
                 keyType = "SYMBOL",
                 OrgDb = org.Hs.eg.db,
-                ont = "CC",
+                ont = "BP",
                 pAdjustMethod = "BH",
                 pvalueCutoff = 0.01,
                 qvalueCutoff = 0.05)
