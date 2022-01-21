@@ -7,17 +7,13 @@ output:
 
 ```{r setup, include = False}
 knitr::opts_chunk$set(warning = FALSE, message = FALSE)
-if (!require("pacman")){
+if (!require("pacman"))
     install.packages("pacman")
-} #if pacman is not installed, install it
-pacman::p_load(tidyverse, data.table, ggplot2, janitor, ggpubr, ggrepel,
-               devtools, readxl, DESeq2, readr, edgeR, annotables)
 if (!requireNamespace("BiocManager", quietly = TRUE))
     install.packages("BiocManager")
-library(PCAtools)
-library(clusterProfiler)
-library(org.Hs.eg.db)
-library(enrichplot)
+pacman::p_load(tidyverse, data.table, ggplot2, janitor, ggpubr, ggrepel,
+               devtools, readxl, DESeq2, readr, edgeR, annotables,
+               PCAtools, clusterProfiler, "org.Hs.eg.db", enrichplot, pcaExplorer, topGO)
 
 source(here::here('scripts','feature_count','create_feature_count_table.R'))
 source(here::here('scripts','feature_count','make_deseq_dfs.R'))
@@ -84,65 +80,30 @@ https://bioconductor.org/packages/release/bioc/vignettes/PCAtools/inst/doc/PCAto
 We're going to put the "ensgene" into a 'rowname' and then do the PCA analysis using meta data
 Now I'm going to write this using the pipe operator "%>%". Your "hot key" to type that in is: Ctrl + Shift + M
 ```{r}
-bdnf_counts <- featureCounts
-colnames(bdnf_counts) <- c("ensgene",
+#featureCounts <- featureCounts[,c(1,5:13,17:20)]
+colnames(featureCounts) <- c("ensgene", 
                            "DOX_0.0125_1", "DOX_0.0125_2", "DOX_0.0125_3",
                            "DOX_0.0187_1", "DOX_0.0187_2", "DOX_0.0187_3",
                            "DOX_0.021_1", "DOX_0.021_2", "DOX_0.021_3", 
                            "DOX_0.025_1", "DOX_0.025_2", "DOX_0.025_3", 
                            "DOX_0.075_1", "DOX_0.075_2", "DOX_0.075_3",
                            "NT_0_1", "NT_0_2", "NT_0_3", 
-                           "symbol")
+                           "gene_name")
 
-pca_table <- bdnf_counts[,1:19] %>% 
+pca_table <- featureCounts[,1:19] %>%
     column_to_rownames('ensgene')
-
+    
 path_to_meta_you_downloaded <-  "/Users/matteozanovello/Documents/phd/research_lines/tdp43_concentration/data/metadata.csv" #update this
 meta_df <- fread(path_to_meta_you_downloaded)
-#meta_df <- meta_df[c(1:3,7:9)] #update this
-meta_df <- meta_df %>% 
+meta_df <- meta_df %>%
     column_to_rownames('sample') 
+meta_df[,1] <- as.factor(meta_df[,1])
+meta_df[,2] <- as.factor(meta_df[,2])
 
-p <- PCAtools::pca(pca_table, metadata = meta_df, removeVar = 0.1)
-screeplot(p, axisLabSize = 18, titleLabSize = 22)
-```
+annotation <- featureCounts[,c(1,20)] %>%
+    column_to_rownames('ensgene')
 
-Now we're going to make what is called an "eigencorplot"
-This is going to correlate our metadata variables with our principle components. 
-```{r}
-PCAtools::eigencorplot(p, components = getComponents(p),
-                       metavars = c('condition',"level"))
-```
-
-We can do a biplot with the 2 PC's that are correlating
-```{r}
-biplot(p,
-       x = "PC4", #0.97 with level
-       y = "PC4", #0.79 with condition
-       colby = c('level'))
-```
-
-Let's go ahead and find out what the genes are that are correlated with PC2.
-Let's directly take the loadings of each of the genes (a PCA is a linear combination),
-making use of the wonder of `left_join`. Then do the same with the original count table
-```{r}
-pc1_gene_loadings = p$loadings %>% 
-    dplyr::select(PC1) %>% 
-    rownames_to_column('ensgene') %>% 
-    left_join(annotables::grch38 %>% dplyr::select(c(ensgene))) %>% 
-#https://statisticsglobe.com/r-dplyr-join-inner-left-right-full-semi-anti
-    arrange(-PC1)
-
-bdnf_counts %>% 
-    left_join(annotables::grch38 %>% dplyr::select(c(ensgene,symbol))) %>% 
-    left_join(pc1_gene_loadings %>% head(12)) %>%
-    filter(!is.na(PC1)) %>%
-    dplyr::select(-ensgene) %>% 
-    melt(id.vars = c("symbol","PC1")) %>%
-    mutate(ensgene = fct_reorder(symbol,-PC1)) %>% 
-    separate(variable, into = c("condition","level")) %>%
-    ggplot(aes(x = condition, y = value, fill = level)) + 
-    geom_col(position = "dodge2") + facet_wrap(~symbol)
+pcaExplorer(countmatrix = pca_table, coldata = meta_df, annotation = annotation)
 
 ```
 
