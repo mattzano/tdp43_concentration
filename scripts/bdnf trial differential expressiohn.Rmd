@@ -7,10 +7,8 @@ output:
 
 ```{r setup, include = False}
 knitr::opts_chunk$set(warning = FALSE, message = FALSE)
-if (!require("pacman"))
-    install.packages("pacman")
-if (!requireNamespace("BiocManager", quietly = TRUE))
-    install.packages("BiocManager")
+if (!require("pacman")) {install.packages("pacman")}
+if (!requireNamespace("BiocManager", quietly = TRUE)) {install.packages("BiocManager")}
 pacman::p_load(tidyverse, data.table, ggplot2, janitor, ggpubr, ggrepel,
                devtools, readxl, DESeq2, readr, edgeR, annotables,
                PCAtools, clusterProfiler, "org.Hs.eg.db", enrichplot, pcaExplorer, topGO)
@@ -64,7 +62,7 @@ contrast <- c("dox00125",
               "dox0075"
               )
 for (i in contrast) {
-    input <- paste(base, i, sep = "-")
+    input <- paste(base, contrast, sep = "-")
     input_csv <- paste(input, "csv", sep = ".")
 input_splicing <- fread(file.path(here::here(), "data", input_csv))
 input_splicing <- separate_rows(input_splicing, c(names(input_splicing[,c(4:9,12,15)])), sep  = c(";"), convert = T)
