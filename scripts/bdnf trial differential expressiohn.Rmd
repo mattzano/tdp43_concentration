@@ -11,7 +11,7 @@ if (!require("pacman")) {install.packages("pacman")}
 if (!requireNamespace("BiocManager", quietly = TRUE)) {install.packages("BiocManager")}
 pacman::p_load(tidyverse, data.table, ggplot2, janitor, ggpubr, ggrepel,
                devtools, readxl, DESeq2, readr, edgeR, annotables,
-               PCAtools, clusterProfiler, "org.Hs.eg.db", enrichplot, pcaExplorer, topGO)
+               PCAtools, clusterProfiler, "org.Hs.eg.db", enrichplot, pcaExplorer, topGO, UpSetR)
 
 source(here::here('scripts','feature_count','create_feature_count_table.R'))
 source(here::here('scripts','feature_count','make_deseq_dfs.R'))
