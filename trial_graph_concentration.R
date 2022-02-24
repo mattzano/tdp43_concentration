@@ -46,78 +46,116 @@ big_data$.id <- factor(big_data$.id, levels = c("no_dox",
                                                 "dox_025", 
                                                 "dox_075"))
 
-#big_data_filter <- big_delta %>%
-#  group_by(lsv_junc) %>%
-#  filter(n() ==  5) %>%
-#  mutate(mean_psi_per_lsv_junction_normal = (contrast_mean_psi - no_dox_mean_psi)
-#         / (contrast_mean_psi[.id == "dox0075"] - no_dox_mean_psi)) #%>%
-#  filter(mean_psi_per_lsv_junction_normal[.id == "dox0075"] >= mean_psi_per_lsv_junction_normal[.id == "dox0025"] &
-#         mean_psi_per_lsv_junction_normal[.id == "dox0025"] >= mean_psi_per_lsv_junction_normal[.id == "dox0021"] &
-#         mean_psi_per_lsv_junction_normal[.id == "dox0021"] >= mean_psi_per_lsv_junction_normal[.id == "dox00187"] &
-#         mean_psi_per_lsv_junction_normal[.id == "dox00187"] >= mean_psi_per_lsv_junction_normal[.id == "dox00125"]) %>%
-#  filter(mean_psi_per_lsv_junction_normal >= 0)# %>%
-#  filter(mean_psi_per_lsv_junction_normal[.id == "dox0025"] < 0.3)
 
- 
 big_data_filtereds <- big_data %>%
   filter(lsv_junc %in% big_delta_filter$lsv_junc) %>% #try without cryptics
   group_by(lsv_junc) %>%
   filter(n() == 6) %>%
   filter(mean_psi_per_lsv_junction[.id == "no_dox"] < 0.05) %>%
-  filter(mean_psi_per_lsv_junction[.id == "dox_025"]  > 0.01) %>%
-  
-  filter((mean_psi_per_lsv_junction[.id == "dox_075"] - mean_psi_per_lsv_junction[.id == "dox_025"] > -0.1) &
-         (mean_psi_per_lsv_junction[.id == "dox_025"] - mean_psi_per_lsv_junction[.id == "dox_021"] > -0.1) &
-         (mean_psi_per_lsv_junction[.id == "dox_021"] - mean_psi_per_lsv_junction[.id == "dox_0187"] > -0.1) &
+  filter(mean_psi_per_lsv_junction[.id == "dox_025"] > 0.01) %>%
+  filter((mean_psi_per_lsv_junction[.id == "dox_075"] -  mean_psi_per_lsv_junction[.id == "dox_025"]  > -0.1) &
+         (mean_psi_per_lsv_junction[.id == "dox_025"] -  mean_psi_per_lsv_junction[.id == "dox_021"]  > -0.1) &
+         (mean_psi_per_lsv_junction[.id == "dox_021"] -  mean_psi_per_lsv_junction[.id == "dox_0187"] > -0.1) &
          (mean_psi_per_lsv_junction[.id == "dox_0187"] - mean_psi_per_lsv_junction[.id == "dox_0125"] > -0.1) &
-         (mean_psi_per_lsv_junction[.id == "dox_0125"] - mean_psi_per_lsv_junction[.id == "no_dox"] > -0.1)) %>%
-  
-  mutate(mean_psi_per_lsv_junction_normal = (mean_psi_per_lsv_junction - mean_psi_per_lsv_junction[.id == "no_dox"])
-         / (mean_psi_per_lsv_junction[.id == "dox_075"] - mean_psi_per_lsv_junction[.id == "no_dox"])) %>%
-  
+         (mean_psi_per_lsv_junction[.id == "dox_0125"] - mean_psi_per_lsv_junction[.id == "no_dox"]   > -0.1))
+
+big_data_filtereds_a <- big_data_filtereds %>% filter(.id == "dox_075")
+big_data_filtereds <- right_join(big_data_filtereds, big_data_filtereds_a[, c("lsv_junc","mean_psi_per_lsv_junction")], by = "lsv_junc")
+colnames(big_data_filtereds)[5] <- "mean_psi_per_lsv_junction"
+colnames(big_data_filtereds)[19] <- "mean_psi_per_lsv_junction_075"
+
+big_data_filtereds <- big_data_filtereds %>%
+  group_by(lsv_junc) %>%
+  #filter(n() == 6) %>%
+  mutate(mean_psi_per_lsv_junction_normal = (mean_psi_per_lsv_junction - mean_psi_per_lsv_junction[.id == "no_dox"]) 
+                                                    / (mean_psi_per_lsv_junction_075 - mean_psi_per_lsv_junction[.id == "no_dox"])) %>%
   filter((mean_psi_per_lsv_junction_normal[.id == "dox_075"] - mean_psi_per_lsv_junction_normal[.id == "dox_025"] > -0.1) &
       (mean_psi_per_lsv_junction_normal[.id == "dox_025"] - mean_psi_per_lsv_junction_normal[.id == "dox_021"] > -0.1) &
       (mean_psi_per_lsv_junction_normal[.id == "dox_021"] - mean_psi_per_lsv_junction_normal[.id == "dox_0187"] > -0.1) &
       (mean_psi_per_lsv_junction_normal[.id == "dox_0187"] - mean_psi_per_lsv_junction_normal[.id == "dox_0125"] > -0.1) &
-      (mean_psi_per_lsv_junction_normal[.id == "dox_0125"] - mean_psi_per_lsv_junction_normal[.id == "no_dox"] > -0.1)) %>%
-  
-  mutate(color_gene_name = as.factor(as.character(ifelse(paste_into_igv_junction %in% c("chr19:17641556-17642414",
-                                                                              "chr8:79611214-79616822",
-                                                                              "chr20:63439708-63444659",
-                                                                              "chr10:3099819-3101365",
-                                                                              "chr2:241668985-241670726",
-                                                                              "chr9:128956174-128956350"), 1,
-                                        #ifelse(mean_psi_per_lsv_junction_normal[.id == "dox_0125"] > 0.2, 0,
-                                        #ifelse(mean_psi_per_lsv_junction_normal[.id == "dox_0187"] > 0.2, 0,
-                                        #ifelse(mean_psi_per_lsv_junction_normal[.id == "dox_021"] > 0.2, 0.5,
-                                        ifelse((mean_psi_per_lsv_junction_normal[.id == "dox_0125"] < 0.1 &
-                                                 mean_psi_per_lsv_junction_normal[.id == "dox_0187"] < 0.1 &
-                                                 mean_psi_per_lsv_junction_normal[.id == "dox_021"] < 0.1 &
-                                                 mean_psi_per_lsv_junction_normal[.id == "dox_025"] < 0.1), 0.5, 0)))), 
-         levels = c(0,0,0.5,0.5,1,1)) %>%
-  
-  mutate(label_junction = case_when((paste_into_igv_junction %in% c("chr19:17641556-17642414",
-                                                                    "chr8:79611214-79616822",
-                                                                    "chr20:63439708-63444659",
-                                                                    "chr10:3099819-3101365",
-                                                                    "chr2:241668985-241670726",
-                                                                    "chr9:128956174-128956350") &
-                                       .id =="dox_0187") |
-                                    (mean_psi_per_lsv_junction_normal[.id == "dox_025"] < 0.1 & .id == "dox_025") 
-                                    ~ gene_name,
-                                    T ~ ""))
+      (mean_psi_per_lsv_junction_normal[.id == "dox_0125"] - mean_psi_per_lsv_junction_normal[.id == "no_dox"] > -0.1))
 
+big_data_filtereds_a <- big_data_filtereds %>% filter(.id == "dox_025")
+big_data_filtereds <- right_join(big_data_filtereds, big_data_filtereds_a[, c("lsv_junc","mean_psi_per_lsv_junction_normal")], by = "lsv_junc")
+colnames(big_data_filtereds)[20] <- "mean_psi_per_lsv_junction_normal"
+colnames(big_data_filtereds)[21] <- "mean_psi_per_lsv_junction_normal_025"
 
-big_data_filtereds %>%
-  #filter(gene_name == "STMN2") %>%
-  ggplot(mapping = aes(x = .id, y = mean_psi_per_lsv_junction, group = lsv_junc)) +
+big_data_filtereds_a <- big_data_filtereds %>% filter(.id == "dox_0187")
+big_data_filtereds <- right_join(big_data_filtereds, big_data_filtereds_a[, c("lsv_junc","mean_psi_per_lsv_junction_normal")], by = "lsv_junc")
+colnames(big_data_filtereds)[20] <- "mean_psi_per_lsv_junction_normal"
+colnames(big_data_filtereds)[22] <- "mean_psi_per_lsv_junction_normal_0187"
+
+  #mutate(color_gene_name = as.factor(as.character(ifelse(paste_into_igv_junction %in% c("chr19:17641556-17642414","chr8:79611214-79616822"), 1, 0))))
+big_data_filtereds_b <- big_data_filtereds %>%
+  group_by(lsv_junc) %>% 
+  mutate(color_gene_name = as.factor(as.character(ifelse(paste_into_igv_junction %in% c("chr19:17641556-17642414","chr8:79611214-79616822"), 1, 0))))
+
+big_data_filtereds_c <- big_data_filtereds %>%
+  group_by(lsv_junc) %>% 
+  mutate(color_gene_name = as.factor(as.character(ifelse(paste_into_igv_junction %in% c("chr19:17641556-17642414","chr8:79611214-79616822"), 1,
+                                                     ifelse(mean_psi_per_lsv_junction_normal_025 < 0.1, 2, 
+                                                         ifelse(mean_psi_per_lsv_junction_normal_0187 > 0.7, 3, 4))))))
+                                                         #ifelse(mean_psi_per_lsv_junction_normal[.id == "dox_025"] < 0.1, 3, 4)))))
+    #mean_psi_per_lsv_junction_normal[.id == "dox_0187"] > 0.6, "red", "orange"))))
+                                                         #ifelse(mean_psi_per_lsv_junction_normal[.id == "dox_025"] < 0.1, "green", "orange")))))
+#paste_into_igv_junction %in% c("chr19:17641556-17642414",
+#                    "chr8:79611214-79616822"), 1, 
+                                                                              #"chr20:63439708-63444659",
+                                                                              #"chr10:3099819-3101365",
+                                                                              #"chr2:241668985-241670726",
+                                                                              #"chr9:128956174-128956350"), 1, 0)))) %>%
+
+  #mutate(label_junction = case_when((paste_into_igv_junction %in% c("chr19:17641556-17642414",
+  #                                                                  "chr8:79611214-79616822",
+  #                                                                  "chr20:63439708-63444659",
+  #                                                                  "chr10:3099819-3101365",
+  #                                                                  "chr2:241668985-241670726",
+  #                                                                  "chr9:128956174-128956350") &
+  #                                     .id =="dox_0187") |
+  #                                  (mean_psi_per_lsv_junction_normal[.id == "dox_025"] < 0.1 & .id == "dox_025") 
+  #                                  ~ gene_name,
+  #                                  T ~ ""))
+
+plot <- big_data_filtereds_b %>%
+  filter(paste_into_igv_junction %in% c("chr19:17641556-17642414","chr8:79611214-79616822")) %>%
+  ggplot(mapping = aes(x = .id, y = mean_psi_per_lsv_junction_normal, group = lsv_junc)) +
   geom_line(aes(color = color_gene_name, alpha = color_gene_name), show.legend = F) +
-  geom_text_repel(aes(x = .id, y = mean_psi_per_lsv_junction, label = label_junction), point.padding = 0.3,
-                  nudge_y = 0.2, min.segment.length = 0.5, box.padding  = 2, max.overlaps = Inf, size=4, show.legend = F) +
-  scale_color_manual(values = c("gray", "#D53E4F", "#3288BD")) +
-  scale_alpha_manual(values = c(0.2,1,1)) +
-  
+  #geom_text_repel(aes(x = .id, y = mean_psi_per_lsv_junction, label = label_junction), point.padding = 0.3,
+  #                nudge_y = 0.2, min.segment.length = 0.5, box.padding  = 2, max.overlaps = Inf, size=4, show.legend = F) +
+  scale_color_manual(values = c(#"gray",
+                                "#3288BD")) +
+  scale_alpha_manual(values = c(1)) +
+  xlab("TDP-43 knockdown level") +
+  ylab("Normalised PSI") +
+  scale_x_discrete(labels = c("-", "+", "++", "+++", "++++", "+++++")) +
+  scale_y_continuous(breaks=seq(0,1,0.2)) +
+  #  labels = c(0,0.2,0.4,0.6,0.8,1)) +
   theme_classic()
+print(plot)
+ggsave("spaghetti_bw_unc_stmn.png", plot, width = 8, height = 5)
+
+plot <- big_data_filtereds_c %>%
+  #filter(gene_name == "STMN2") %>%
+  ggplot(mapping = aes(x = .id, y = mean_psi_per_lsv_junction_normal, group = lsv_junc)) +
+  geom_line(aes(color = color_gene_name, alpha = color_gene_name), show.legend = F) +
+  #geom_text_repel(aes(x = .id, y = mean_psi_per_lsv_junction, label = label_junction), point.padding = 0.3,
+  #                nudge_y = 0.2, min.segment.length = 0.5, box.padding  = 2, max.overlaps = Inf, size=4, show.legend = F) +
+  scale_color_manual(values = c("#3288BD",
+                                "#D53E4F",
+                                
+                                
+                                "#FDAE61",
+                                "gray")) +
+  scale_alpha_manual(values = c(1,1,1,0.2)) +
+  xlab("TDP-43 knockdown level") +
+  ylab("Normalised PSI") +
+  scale_x_discrete(labels = c("-", "+", "++", "+++", "++++", "+++++")) +
+  scale_y_continuous(breaks=seq(0,1,0.2)) +
+  #  labels = c(0,0.2,0.4,0.6,0.8,1)) +
+  theme_classic()
+print(plot)
+
+ggsave("spaghetti.png", plot, width = 8, height = 5)
 
 #shared_cryptic = tbl %>%
 #  mutate(name = glue::glue("{gene_name}|{junc_cat}|{paste_into_igv_junction}")) %>%
