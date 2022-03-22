@@ -23,7 +23,7 @@ source(here::here('scripts','splicing_volcanoplot.R'))
 this organizes all the data from the many .bam files and creates one data frame you can work with,
 then runs the make_deseq_dfs() function and run_standard_deseq() and eventually make graphs
 ```{r}
-featureCounts <- create_feature_count_table("/Users/matteozanovello/Documents/phd/research_lines/tdp43_concentration/data/feature_count") #change here!!
+featureCounts <- create_feature_count_table("data/feature_count") #change here!!
 #my_df <- make_deseq_dfs(featureCounts, grep_pattern = "", base_grep = "NT", contrast_grep = "DOX")
 
 grepper <- c("a", 
@@ -39,7 +39,7 @@ names(grepper) <- c("dox00125",
                     "dox0075"
                     )
 for (j in grepper) {
-my.dds <- run_standard_deseq("/Users/matteozanovello/Documents/phd/research_lines/tdp43_concentration/data/feature_count", #change here!!
+my.dds <- run_standard_deseq("data/feature_count", #change here!!
                              base_grep = "NT",
                              contrast_grep = "DOX",  
                              grep_pattern = j,
@@ -62,9 +62,9 @@ contrast <- c("dox00125",
               "dox0075"
               )
 for (i in contrast) {
-    input <- paste(base, contrast, sep = "-")
+    input <- paste(base, i, sep = "-")
     input_csv <- paste(input, "csv", sep = ".")
-input_splicing <- fread(file.path(here::here(), "data", input_csv))
+input_splicing <- fread(file.path(here::here(), "data/psi", input_csv))
 input_splicing <- separate_rows(input_splicing, c(names(input_splicing[,c(4:9,12,15)])), sep  = c(";"), convert = T)
 
 a <- splicing_dots_tables_function(input_splicing) #+ annotate("text", x=0.9, y=0.1, label=i)
@@ -91,7 +91,7 @@ colnames(featureCounts) <- c("ensgene",
 pca_table <- featureCounts[,1:19] %>%
     column_to_rownames('ensgene')
     
-path_to_meta_you_downloaded <-  "/Users/matteozanovello/Documents/phd/research_lines/tdp43_concentration/data/metadata.csv" #update this
+path_to_meta_you_downloaded <-  "data/metadata.csv" #update this
 meta_df <- fread(path_to_meta_you_downloaded)
 meta_df <- meta_df %>%
     column_to_rownames('sample') 
