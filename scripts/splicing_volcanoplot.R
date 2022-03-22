@@ -1,8 +1,7 @@
 splicing_dots_tables_function <- function(input_splicing) {
   splicing_dots_tables <- input_splicing %>% 
-  mutate(junction_name = case_when(gene_name %in% c("UNC13A","INSR",
-                                                    "UNC13B","PFKP","CELF5",
-                                                    "ATG4B","STMN2") &
+  mutate(junction_name = case_when(gene_name %in% c("UNC13A","CELF5",
+                                                    "ELAVL3","STMN2") &
                                      probability_changing > 0.9  &
                                      mean_dpsi_per_lsv_junction > 0 ~ gene_name,
                                    T ~ "")) %>%
@@ -10,9 +9,8 @@ splicing_dots_tables_function <- function(input_splicing) {
   mutate(log10_test_stat = -log10(1 - probability_changing)) %>%
   mutate(log10_test_stat = ifelse(is.infinite(log10_test_stat), 4.5, log10_test_stat)) %>%
   mutate(graph_alpha = ifelse(probability_changing > 0.9, 1, 0.2)) %>%
-  mutate(label_junction = case_when(gene_name %in% c("UNC13A","INSR",
-                                                    "UNC13B","PFKP","CELF5",
-                                                    "ATG4B","STMN2") &
+  mutate(label_junction = case_when(gene_name %in% c("UNC13A","CELF5",
+                                                    "ELAVL3","STMN2") &
                                       probability_changing > 0.9  &
                                       mean_dpsi_per_lsv_junction > 0 ~ junction_name,
                                     T ~ ""))
