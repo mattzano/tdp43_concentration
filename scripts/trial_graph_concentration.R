@@ -57,10 +57,10 @@ big_data_filtereds <- big_data %>%
          (mean_psi_per_lsv_junction[.id == "dox_0187"] - mean_psi_per_lsv_junction[.id == "dox_0125"] > - 0.05) &
          (mean_psi_per_lsv_junction[.id == "dox_0125"] - mean_psi_per_lsv_junction[.id == "no_dox"]   > - 0.1)) %>%
   dplyr::mutate(color_gene_name = as.factor(as.character(ifelse(mean_psi_per_lsv_junction[.id == "dox_025"]  < 0.05 &
-                                                                mean_psi_per_lsv_junction[.id == "dox_075"]  - mean_psi_per_lsv_junction[.id == "no_dox"] > 0.2, 3, 
-                                                         ifelse(mean_psi_per_lsv_junction[.id == "dox_0187"] > 0.4, 2, 1))))) %>%
-  dplyr::mutate(alpha_gene_name = as.factor(as.character(ifelse(color_gene_name == 3 | color_gene_name == 2, 2, 1)))) %>%
-  dplyr::mutate(label_junction = case_when(.id =="dox_0187" & (color_gene_name == 3 | color_gene_name == 2) ~ gene_name, T ~ ""))
+                                                                mean_psi_per_lsv_junction[.id == "dox_075"]  - mean_psi_per_lsv_junction[.id == "no_dox"] > 0.1, "late", 
+                                                         ifelse(mean_psi_per_lsv_junction[.id == "dox_0187"] > 0.4, "early", "none"))))) %>%
+  dplyr::mutate(alpha_gene_name = as.factor(as.character(ifelse(color_gene_name == "late" | color_gene_name == "early", 2, 1)))) %>%
+  dplyr::mutate(label_junction = case_when(.id =="dox_0187" & (color_gene_name == "late" | color_gene_name == "early") ~ gene_name, T ~ ""))
 
 
 plot <- big_data_filtereds %>%
@@ -165,6 +165,57 @@ avg_read_counts %>%
   theme_classic()
 }
 
+
+rainbow <- function(gene_list) {
+  
+  big_data_list <- big_data %>%
+    filter(lsv_junc %in% big_delta$lsv_junc) %>% #try without cryptics
+    group_by(lsv_junc) %>% filter(n() == 6) %>%
+    filter(mean_psi_per_lsv_junction[.id == "no_dox"]  < 0.05) %>% 
+    filter(mean_psi_per_lsv_junction[.id == "dox_025"] > 0.01) %>%
+    filter(mean_psi_per_lsv_junction[.id == "dox_075"] > 0.1) %>%
+    filter((mean_psi_per_lsv_junction[.id == "dox_075"]  - mean_psi_per_lsv_junction[.id == "dox_025"]  > - 0.1) &
+             (mean_psi_per_lsv_junction[.id == "dox_025"]  - mean_psi_per_lsv_junction[.id == "dox_021"]  > - 0.05) &
+             (mean_psi_per_lsv_junction[.id == "dox_021"]  - mean_psi_per_lsv_junction[.id == "dox_0187"] > - 0.05) &
+             (mean_psi_per_lsv_junction[.id == "dox_0187"] - mean_psi_per_lsv_junction[.id == "dox_0125"] > - 0.05) &
+             (mean_psi_per_lsv_junction[.id == "dox_0125"] - mean_psi_per_lsv_junction[.id == "no_dox"]   > - 0.1)) %>%
+    dplyr::mutate(color_gene_name = as.character(ifelse(mean_psi_per_lsv_junction[.id == "dox_0125"] > 0.1, 1,
+                                                        ifelse(mean_psi_per_lsv_junction[.id == "dox_0187"] > 0.1, 2,  
+                                                               ifelse(mean_psi_per_lsv_junction[.id == "dox_021"] > 0.1, 3, 
+                                                                      ifelse(mean_psi_per_lsv_junction[.id == "dox_025"] > 0.1, 4,
+                                                                             ifelse(mean_psi_per_lsv_junction[.id == "dox_075"] > 0.1, 5, 0))))))) %>%
+    dplyr::mutate(color_gene_name_2 = as.character(ifelse(color_gene_name == 1 | color_gene_name == 2, 1,
+                                                          ifelse(color_gene_name == 3 | color_gene_name == 4, 2, 3))))
+  
+  plot <- big_data_list %>%
+    #dplyr::filter(color_gene_name != "-") %>%
+    ggplot(mapping = aes(x = .id, y = mean_psi_per_lsv_junction, group = lsv_junc)) +
+    geom_line(aes(color = color_gene_name_2), show.legend = T) +
+    #geom_bar(fill ="#3288BD", stat = "identity", width = 0.5) +
+    #geom_errorbar(aes(x = .id, ymin = mean_psi_per_lsv_junction - (stdev_psi_per_lsv_junction/sqrt(2)),
+    #                           ymax = mean_psi_per_lsv_junction + (stdev_psi_per_lsv_junction/sqrt(2))), width = 0.3) +
+    #geom_text_repel(aes(x = .id, y = mean_psi_per_lsv_junction, label = label_junction), point.padding = 0.3,
+    #                nudge_y = 0.2, min.segment.length = 0.5, box.padding  = 2, max.overlaps = Inf, size=4, show.legend = F) +
+    scale_color_manual(values = c("#BC59D0", 
+                                  #"#B9A4D0", 
+                                  "#AEE06F", 
+                                  #"#A1DAC9", 
+                                  "#DDA17B")) +
+    #scale_color_manual(palette = randomcoloR::distinctColorPalette(k =5)) +
+    #scale_color_brewer(palette ="Set2") +
+    #scale_alpha_manual(values = c(0.1,1)) +
+    xlab("TDP-43 protein levels") +
+    ylab("Normalised PSI") +
+    scale_x_discrete(labels = c("100%", "77%", "25%", "8%", "4%", "0%")) +
+    scale_y_continuous(breaks=seq(0,1,0.2)) + #,
+    #labels = c("0%","20%","40%","60%","80%","100%")) +
+    theme_classic()
+  print(plot)
+  
+  write.table(big_data_list, "rainbow.csv", quote = F, sep = ",", row.names = F)
+  
+  
+}
 
 #unc_cryptic  <- big_data %>%
 #  dplyr::filter(gene_name == "UNC13A" & (.id == "no_dox" | .id == "dox_025")) %>%

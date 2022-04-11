@@ -51,7 +51,8 @@ meta_df[,2] <- as.factor(meta_df[,2])
 
 #pcaExplorer(countmatrix = pca_table, coldata = meta_df, annotation = annotation)
 
-gene_list <-  c("SYT7", "RSF1", "KCNQ2", "HDGFL2", "AGRN", "ACTL6B", "MYO18A", "MYO1C", "KALRN", "DNM1", "CAMK2B", "ADGRB1", "TARDBP")
+
+#gene_list <-  c("SYT7", "RSF1", "KCNQ2", "HDGFL2", "AGRN", "ACTL6B", "MYO18A", "MYO1C", "KALRN", "DNM1", "CAMK2B", "ADGRB1", "TARDBP")
 
 grepper <- c("a", "b", "c", "f", "h")
 names(grepper) <- c("dox00125", "dox00187", "dox0021", "dox0025", "dox0075")
@@ -81,8 +82,8 @@ for (i in contrast) {
   input_bc_splicing <- fread(file.path(here::here(), "data", "majiq_delta", input_bc_csv))
   names(input_bc_splicing)[13] <- "contrast_mean_psi"
 
-  a <- splicing_dots_tables_function(input_bc_splicing) + annotate("text", x=0.9, y=0.1, label=i)
-  plot(a)
+  #a <- splicing_dots_tables_function(input_bc_splicing) + annotate("text", x=0.9, y=0.1, label=i)
+  #plot(a)
 
   datalista[[i]] <- input_bc_splicing
 }
@@ -132,7 +133,7 @@ spaghetti_plot_normal(big_data)
 
 ```{r}
 postar_bed <- fread("~/Desktop/rbp_bed/human_RBP_binding_sites_sorted.bed", 
-                    col.names = c("seqnames", "start", "end", "dataset", "score", "strand", "QC"))
+                    col.names = c("seqnames", "start", "end", "dataset", "score", "strand", "QC")) ####use TDP only
 
 ensembl <- biomaRt::useEnsembl(biomart = "genes", dataset = "hsapiens_gene_ensembl")
 humandb <- biomaRt::getBM(attributes = c("external_gene_name", 
