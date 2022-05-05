@@ -49,7 +49,7 @@ meta_df <- meta_df %>%
 meta_df[,1] <- as.factor(meta_df[,1])
 meta_df[,2] <- as.factor(meta_df[,2])
 
-#pcaExplorer(countmatrix = pca_table, coldata = meta_df, annotation = annotation)
+pcaExplorer(countmatrix = pca_table, coldata = meta_df, annotation = annotation)
 
 
 #gene_list <-  c("SYT7", "RSF1", "KCNQ2", "HDGFL2", "AGRN", "ACTL6B", "MYO18A", "MYO1C", "KALRN", "DNM1", "CAMK2B", "ADGRB1", "TARDBP")

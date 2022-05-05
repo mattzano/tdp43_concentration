@@ -213,9 +213,57 @@ rainbow <- function(gene_list) {
   print(plot)
   
   write.table(big_data_list, "rainbow.csv", quote = F, sep = ",", row.names = F)
-  
-  
 }
+
+
+
+datalistas <- list()
+grepper <- c("a", "b", "c", "f", "h")
+names(grepper) <- c("dox00125", "dox00187", "dox0021", "dox0025", "dox0075")
+for (j in grepper) {
+  my.dds <- run_standard_deseq("data/feature_count", #change here!!
+                               base_grep = "NT",
+                               contrast_grep = "DOX",  
+                               grep_pattern = j,
+                               baseName = "Untreated",
+                               contrastName = 'TDP43KD')
+  results <- my.dds$results
+  datalistas[[j]] <- results
+}
+
+
+
+big_deseq <- rbindlist(datalistas, idcol = TRUE)
+big_deseq$.id <- factor(big_deseq$.id, levels = grepper, labels = namess)
+
+results_edit <- big_deseq %>%
+  #dplyr::filter(padj.x < 0.05) %>%
+  group_by(gene_name) %>%
+  #mutate(delta_ctrl = log2FoldChange.x) %>%
+  #mutate(delta_chx = log2FoldChange.y) %>%
+  mutate(color_gene_name = as.character(ifelse(delta_ctrl > 0 & delta_chx > 0, 1,
+                                               ifelse(delta_ctrl > 0 & delta_chx < 0, 2,
+                                                      ifelse(delta_ctrl < 0 & delta_chx > 0, 3, 4))))) %>%
+  mutate(alpha_gene_name = as.character(ifelse(abs(delta_ctrl) < 2.5, # & abs(delta_chx) < 2.5, 
+                                               1, 2))) %>%
+  mutate(label_junction = case_when(alpha_gene_name == 2 ~ gene_name, T ~ ""))
+
+big_deseq %>%
+  dplyr::filter(gene_name == "CYFIP2" | gene_name == "UNC13A" | gene_name == "CELF5" | gene_name == "ELAVL3" | gene_name == "SYNE1") %>%
+  ggplot(aes(x = .id, y = log2FoldChange, group = gene_name)) +
+  #geom_text_repel(aes(label = label_junction), show.legend = F, max.overlaps = 100) +
+  geom_line(aes(color = gene_name), show.legend = T) +
+  #geom_smooth(method='lm', formula= y~x) +
+  scale_color_brewer(palette = "Set1") +
+  scale_alpha_manual(values = c(0.8, 0.8)) +
+  #geom_vline(xintercept = 0) +
+  geom_hline(yintercept = 0) +
+  xlab("TDP-43 protein levels") +
+  ylab("log2 Fold Change") +
+  scale_x_discrete(labels = c("77%", "25%", "8%", "4%", "0%")) +
+  theme_classic()
+
+
 
 #unc_cryptic  <- big_data %>%
 #  dplyr::filter(gene_name == "UNC13A" & (.id == "no_dox" | .id == "dox_025")) %>%
