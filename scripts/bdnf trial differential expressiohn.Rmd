@@ -18,7 +18,7 @@ source(here::here('scripts','create_feature_count_table.R'))
 source(here::here('scripts','run_standard_deseq.R'))
 source(here::here('scripts','make_volcano_plot.R'))
 source(here::here('scripts','splicing_volcanoplot.R'))
-source(here::here('scripts','trial_graph_concentration.R'))
+#source(here::here('scripts','trial_graph_concentration.R'))
 source(here::here('scripts','run_de_irfinder.R'))
 source(here::here('scripts','ggtranscript.R'))
 ```
