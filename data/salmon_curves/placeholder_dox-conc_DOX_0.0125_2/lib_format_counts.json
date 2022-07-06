@@ -1,0 +1,22 @@
+{
+    "read_files": "[ /SAN/vyplab/first_weeks/TDP_CHX_CLONES_GLIA/fastp_trimmed/placeholder_dox-conc_DOX_0.0125_2_1.trimmed.fastq.gz, /SAN/vyplab/first_weeks/TDP_CHX_CLONES_GLIA/fastp_trimmed/placeholder_dox-conc_DOX_0.0125_2_2.trimmed.fastq.gz]",
+    "expected_format": "ISF",
+    "compatible_fragment_ratio": 1.0,
+    "num_compatible_fragments": 43445519,
+    "num_assigned_fragments": 43445519,
+    "num_frags_with_concordant_consistent_mappings": 42778131,
+    "num_frags_with_inconsistent_or_orphan_mappings": 710164,
+    "strand_mapping_bias": 0.9999886158080189,
+    "MSF": 0,
+    "OSF": 0,
+    "ISF": 42778131,
+    "MSR": 0,
+    "OSR": 0,
+    "ISR": 487,
+    "SF": 471840,
+    "SR": 237837,
+    "MU": 0,
+    "OU": 0,
+    "IU": 0,
+    "U": 0
+}
