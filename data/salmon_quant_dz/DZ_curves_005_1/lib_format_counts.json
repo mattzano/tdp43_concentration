@@ -1,0 +1,22 @@
+{
+    "read_files": "[ /SAN/vyplab/first_weeks/TDP_curves_UPF1_GLIA/DZ_curves/fastp_trimmed/placeholder_DZ_curves_005_1_1.trimmed.fastq.gz, /SAN/vyplab/first_weeks/TDP_curves_UPF1_GLIA/DZ_curves/fastp_trimmed/placeholder_DZ_curves_005_1_2.trimmed.fastq.gz]",
+    "expected_format": "ISF",
+    "compatible_fragment_ratio": 1.0,
+    "num_compatible_fragments": 59264437,
+    "num_assigned_fragments": 59264437,
+    "num_frags_with_concordant_consistent_mappings": 57699716,
+    "num_frags_with_inconsistent_or_orphan_mappings": 1617583,
+    "strand_mapping_bias": 0.9999955459251255,
+    "MSF": 0,
+    "OSF": 0,
+    "ISF": 57699716,
+    "MSR": 0,
+    "OSR": 0,
+    "ISR": 257,
+    "SF": 1140819,
+    "SR": 476507,
+    "MU": 0,
+    "OU": 0,
+    "IU": 0,
+    "U": 0
+}
