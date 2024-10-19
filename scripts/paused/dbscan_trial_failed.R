@@ -5,7 +5,7 @@ library(tidyverse)
 #big_delta_filter <- big_delta %>%
 #  dplyr::filter(mean_dpsi_per_lsv_junction > 0.1 & probability_changing > 0.9)
 
-manual_validation_sy5y <- read_xlsx("~/Documents/phd/research_lines/tdp-43 curves/manual_validation_curves/validation_curves.xlsx") %>%
+manual_validation_sy5y <- readxl::read_xlsx("~/Documents/phd/research_lines/tdp-43 curves/manual_validation_curves/validation_curves.xlsx") %>%
   mutate(paste_into_igv_junction = paste0(chr, ":", start, "-", end)) %>%
   filter(validation == "yes" & cryptic == "yes")
 
@@ -39,6 +39,15 @@ big_data_dbscan <- big_data_filtereds %>%
                                                                        "none"))))))
   #dplyr::filter(no_dox < 0.05 & dox_075 > 0.1)
 table(big_data_dbscan$category)
+names(big_data_dbscan)[3] <- "dox_0"
+big_data_dbscan %>%
+  pivot_longer(cols = c(3:8), names_to = "level", values_to = "value") %>%
+  #mutate(level = factor(level), levels = c("no_dox", "dox_0125", "dox_0187", "dox_021", "dox_025", "dox_075")) %>%
+  ggplot(aes(x = level, y = value, group = paste_into_igv_junction)) +
+  geom_line(aes(color = category)) +
+  theme_minimal()
+  
+
 #write.table(big_data_dbscan, "~/Desktop/data_for_ettore_normal_label.csv", quote = F, row.names = F, sep = ",")
 
 penguins <- big_data_dbscan %>% 
@@ -54,6 +63,7 @@ umap_fitt <- penguins %>%
   dplyr::select(where(is.numeric)) %>%
   tibble::column_to_rownames("ID") #%>%
   #scale()
+write.table(umap_fitt, "~/Desktop/umap_fitt.csv", sep = ",", row.names = F, quote = F)
 
 set.seed(420)
 umap_fitt
@@ -75,9 +85,9 @@ umap_df %>%
              color = category,#)) +
              size = delta_psi)) +
   geom_point() +
-  geom_text_repel(aes(label = gene_name),
-                  max.overlaps = Inf,
-                  show.legend = F) +
+  #geom_text_repel(aes(label = gene_name),
+  #                max.overlaps = Inf,
+  #                show.legend = F) +
   labs(x = "UMAP1",
        y = "UMAP2",
        subtitle = "UMAP plot") +

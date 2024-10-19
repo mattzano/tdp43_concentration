@@ -26,8 +26,9 @@ source(here::here('scripts','splicing_volcanoplot.R'))
 this organizes all the data from the many .bam files and creates one data frame you can work with,
 then runs the make_deseq_dfs() function and run_standard_deseq() and eventually make graphs
 ```{r}
-salmon_quant_directory_sy5y = "~/Documents/Github/tdp43_concentration/data/salmon_curves/"
-metadata_dir = fread("~/Documents/Github/tdp43_concentration/data/metadata.csv")
+#update with new salmon quant
+salmon_quant_directory_sy5y = "/Users/matteozanovello/Documents/Github/tdp43_concentration/data/salmon_curves/"
+metadata_dir = fread("/Users/matteozanovello/Documents/Github/tdp43_concentration/data/metadata.csv")
 levels_sy5y <- c(0.0125, 0.0187, 0.021, 0.025, 0.075)
 salmon_deseq2(levels_sy5y, salmon_quant_directory_sy5y, metadata_dir)
 assign("normed_counts_sy5y_curves", normed_counts)
@@ -50,15 +51,16 @@ AppendMe <- function(dfNames) {
 list_de <- paste0("results_table_sy5y_curves_", levels_sy5y)
 big_delta_de <- AppendMe(list_de) 
 big_delta_de$source <- factor(big_delta_de$source, levels = list_de, labels = levels_sy5y)
-list_gene <- c("UNC13A", "STMN2", #"AARS", #"UNC13B", 
+list_gene <- c("UNC13A", "STMN2", "INSR"#, #"AARS", #"UNC13B", 
                #"CELF5", "ELAVL3", "INSR", "ATG4B", #"KCNQ2", #"RANBP1", 
                #"NUP188","SYT7", #"WASL",
                 #"RAB1GAP", #"AGRN","PFKP", 
                  #"HDGFL2","ARHGAP32", "CEP290", "PRELID3A", "KALRN",
                  #"CAMK2B", "ADCY1", "TRAPPC12", "EPB41L4A", "IQCE", "SEMA4D"
-                 "CYFIP2", "SYNE1"
+              #   "CYFIP2", "SYNE1"
                )
 
+write.table(big_delta_de, file = "~/Desktop/diff_expr_sh.csv", sep = ",", row.names = F) #"normed_counts_dz_all.csv")
 
 plot_de <- big_delta_de %>%
   mutate(color_gene_name = ifelse(log2FoldChange > 0, "up","down")) %>%
@@ -88,15 +90,16 @@ plot_de %>%
   #scale_x_continuous(trans = cubroot_trans) +
   theme_classic() +
   theme(text = element_text(size = 22))
-ggsave("~/Desktop/de_sy5y_with_dark.png", width = 12)
+#ggsave("~/Desktop/de_sy5y_with_dark.png", width = 12)
 
+write.table(normed_counts_sy5y_curves, "~/Desktop/normed_counts_sh.csv", sep = ",",  row.names = F)
 normed_counts_long <- normed_counts_sy5y_curves[,c(2:19,21)] %>% 
   #dplyr::filter(symbol == "TARDBP" | symbol == "UPF1" | symbol == "INSR") %>%
   pivot_longer(c(1:18)) %>%
   mutate(group = gsub("^[^_]+_|_[^_]+$", "", name))
 ###single gene plot
 normed_counts_long %>%
-  dplyr::filter(symbol == "TARDBP" | symbol == "STMN2" | symbol == "CYFIP2" | symbol == "INSR") %>%
+  dplyr::filter(symbol == "TARDBP" | symbol == "STMN2" | symbol == "INSR" | symbol == "UNC13A") %>%
   ggplot(aes(x = group, y = value, color = symbol)) +
   geom_boxplot(alpha = 0.1, show.legend = F) +
   geom_point(position = position_dodge2(width = 1), show.legend = F) +
@@ -109,7 +112,23 @@ normed_counts_long %>%
 ```
 
 ```{r}
+normed_counts_tdp <- normed_counts_long %>% 
+  filter(symbol == "TARDBP") 
+normed_counts_tdp %>% 
+  ggplot(aes(x = group, y = value/10305.2054 *100)) +
+  geom_boxplot() +
+  labs(x = "Doxycycline concentration", y = "Percentage of TDP-43 compared to controls") +
+  theme_classic()
+
+```
+
+```{r}
 #density plot
+normed_counts_long <- normed_counts_sy5y_curves[,c(2:19,21)] %>% #change 
+  #dplyr::filter(symbol == "TARDBP" | symbol == "UPF1" | symbol == "INSR") %>%
+  pivot_longer(c(1:18)) %>%
+  mutate(group = gsub("^[^_]+_|_[^_]+$", "", name))
+
 normed_counts_long %>%
   ggplot(aes(x = value, color = group)) +
   geom_histogram(aes(y=..density..), colour="black", fill="white") +
@@ -167,7 +186,7 @@ PCAtools::eigencorplot(pp,components = getComponents(pp),
 #nice pca plot
 biplot(pp,
        x = "PC1",
-       y = "PC2",
+       y = "PC3",
        colby = 'level')
 ```
 
@@ -204,6 +223,7 @@ big_data$.id <- factor(big_data$.id, levels = input_list)
 ###upset
 big_data_matrix = big_delta %>%
   filter(junc_cat != "annotated") %>%
+  filter(gene_name %in% list_gene) %>% 
   mutate(is_a_cryptic = base_mean_psi < 0.05 & mean_dpsi_per_lsv_junction > 0.1) %>%
            #abs(mean_dpsi_per_lsv_junction) > 0.15 & probability_changing > 0.9) %>% # 
   mutate(name = glue::glue("{gene_name}|{junc_cat}|{paste_into_igv_junction}")) %>%
@@ -227,13 +247,13 @@ upset(big_data_matrix * 1,
 
 ```{r}
 #spaghetti - fix
-spaghetti_plot(big_data) ###fix - use the new script??
+spaghetti_plot(big_data) ###fix - use the new script?? - use new data cleaned
 #spaghetti_plot_normal(big_data)
 ```
 
 ```{r}
 #create input for GO - DE (do it also on DS)
-carmm <- results_table_sy5y_curves_0.025
+carmm <- results_table_sy5y_curves_0.075
 cm_PR_up <- carmm %>% dplyr::filter(log2FoldChange > 0 & padj < 0.05) 
 cm_PR_up <- cm_PR_up[order(-cm_PR_up$log2FoldChange),]
 cm_PR_down <- carmm %>% dplyr::filter(log2FoldChange < 0 & padj < 0.05)
@@ -246,7 +266,7 @@ go_cm_PR <- gprofiler2::gost(query = list(Upregulated = cm_PR_up$symbol,
                              ordered_query = T, evcodes = TRUE)
 
 go_cm_PR$result %>%
-  dplyr::filter(-log10(p_value) > 20) %>%
+  dplyr::filter(-log10(p_value) > 40) %>%
   arrange(source, desc(query), desc(p_value)) %>%
   mutate(term_code = paste0(term_name, " (", term_id, ")")) %>%
   mutate(term_code=factor(term_code, levels=unique(term_code))) %>%
@@ -273,9 +293,9 @@ go_cm_PR$result %>%
 
 
 ###GO on DS
-carm_ds <- big_delta %>% filter(.id == "dox0025" & no_dox_mean_psi < 0.05 & mean_dpsi_per_lsv_junction > 0.1) %>%
+carm_ds <- big_delta %>% filter(.id == "dox0025" & base_mean_psi < 0.05 & mean_dpsi_per_lsv_junction > 0.1) %>%
   arrange(-mean_dpsi_per_lsv_junction) %>% distinct(gene_name)
-go_cm_DS <- gprofiler2::gost(query = list(Upregulated = carm_ds$gene_name),
+go_cm_DS <- gprofiler2::gost(query = list(Differentially_spliced = carm_ds$gene_name),
                                           #Downregulated = cm_DS_down$gene_name), 
                              sources = c("GO:BP", "GO:CC", "GO:MF"), organism = 'hsapiens', 
                              ordered_query = T, evcodes = TRUE)
@@ -306,39 +326,6 @@ go_cm_DS$result %>%
   theme(legend.text=element_text(size=4))
 
 ###term overlap splicing and expression
-
-
-###venn diagram - compare TDP/CTRL in ctrl vs chx - also compare DE with DS
-up_PR_only <- carmm %>% dplyr::filter(FC_PR_WT > 1 & p_value_PR_WT < 0.05 &
-                                        (FC_GR_WT < 1 | p_value_GR_WT > 0.05)) 
-up_GR_only <- carmm %>% dplyr::filter(FC_GR_WT > 1 & p_value_GR_WT < 0.05 &
-                                        (FC_PR_WT < 1 | p_value_PR_WT > 0.05)) 
-down_PR_only <- carmm %>% dplyr::filter(FC_PR_WT < 1 & p_value_PR_WT < 0.05 &
-                                          (FC_GR_WT > 1 | p_value_GR_WT > 0.05))
-down_GR_only <- carmm %>% dplyr::filter(FC_GR_WT < 1 & p_value_GR_WT < 0.05 &
-                                          (FC_PR_WT > 1 | p_value_PR_WT > 0.05))
-#PR_down 509 - all_down 250 - PR_only 258
-#GR_down 474 - all_down 250 - GR_only 223
-#PR_up 329 - all_up 214 - PR_only 115
-#GR_up 309 - all_up 214 - GR_only 95
-
-mats_down <- c("(GR)400" = 223, "(PR)400" = 258, "(PR)400&(GR)400" = 250)
-
-fit_down <- euler(mats_down)
-#pdf("Venn_down.pdf", width = 3.5, height = 2, pointsize = 12)
-plot(fit_down, main = "Venn diagram showing downregulated genes in the two models",
-     quantities = list(type = c("counts")), labels = FALSE,
-     fills = c("#ffa040", "#55a0fb"))
-#dev.off()
-
-mats_up <- c("(GR)400" = 95, "(PR)400" = 115, "(PR)400&(GR)400" = 214)
-fit_up <- euler(mats_up)
-#pdf("Venn_up.pdf", width = 3.5, height = 2, pointsize = 12)
-plot(fit_up, main = "Venn diagram showing upregulated genes in the two models",
-     quantities = list(type = c("counts")), labels = FALSE,
-     fills = c("#ffa040", "#55a0fb"))
-#dev.off()
-
 ```
 
 ##ggtranscript
@@ -366,40 +353,28 @@ exons_regions = exonsBy(TxDb.Hsapiens.UCSC.hg38.knownGene, "tx",use.names = TRUE
 exons_regions = unlist(exons_regions)
 exons_regions$transcript_id = gsub("\\..*", "", names(exons_regions))
 
-file_path = "data/sj_tabs/normalized_annotated/"
-suffix = "_normalized_annotated.csv"
-psi_files = list.files(file_path,
-                       pattern = suffix,
-                       full.names = TRUE)
-psi_list_full = purrr::map(psi_files,my_clean_reader)
-samp_ids = base::tolower(purrr::simplify(purrr::map(psi_files, basename)))
-samp_ids = gsub(suffix,"",samp_ids)
-##add on the name as an additional column
-psi_list_full = purrr::map2(psi_list_full, samp_ids, ~cbind(.x, SampleID = .y))
-psi_list_full = purrr::map(psi_list_full,my_name_fixer)
-psi_list_full = data.table::rbindlist(psi_list_full)
-
 for (i in contrast) {
- transcript_bind_plot("UNC13A", i)}
+ transcript_bind_plot("UNC13A", i) ###needs edit when calling CE table
+  }
 ```
 
 after running IRFinder, compute DE
 ```{r}
-ir_top_level = "data/irfinder/"
-experiment = make_deframe_irfinder(ir_top_level,base_grep = "NT",
-                                   contrast_grep = "DOX")$metadata
-paths = make_deframe_irfinder(ir_top_level,base_grep = "NT",
-                                   contrast_grep = "DOX")$path
+#ir_top_level = "data/irfinder/"
+#experiment = make_deframe_irfinder(ir_top_level,base_grep = "NT",
+#                                   contrast_grep = "DOX")$metadata
+#paths = make_deframe_irfinder(ir_top_level,base_grep = "NT",
+#                                   contrast_grep = "DOX")$path
 
-for (j in c("0.0125", "0.0187", "0.021", "0.025", "0.075")) {
-    experiment <- filter(experiment, grepl(j, SampleNames) | Condition == "control")
-    paths <- paths[grepl(j, paths) | grepl("NT", paths)]
-}
+#for (j in c("0.0125", "0.0187", "0.021", "0.025", "0.075")) {
+#    experiment <- filter(experiment, grepl(j, SampleNames) | Condition == "control")
+#    paths <- paths[grepl(j, paths) | grepl("NT", paths)]
+#}
 
-dds = run_deseq_ir(paths,experiment = experiment)
-result = return_formated_results(dds)
-result0075 <- result %>% 
-    mutate(ir_change = TDPKD -  control)
+#dds = run_deseq_ir(paths,experiment = experiment)
+#result = return_formated_results(dds)
+#result0075 <- result %>% 
+#    mutate(ir_change = TDPKD -  control)
 
-result_merged <- dplyr::bind_rows(list(result00125, result00187, result0021, result0025, result0075), .id = 'source')
+#result_merged <- dplyr::bind_rows(list(result00125, result00187, result0021, result0025, result0075), .id = 'source')
 ```

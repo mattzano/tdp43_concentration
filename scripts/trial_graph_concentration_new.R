@@ -1,15 +1,15 @@
 ####create a filtered table with deltas and normalized values
 #write.csv(big_data[,c(1,2,5,9,11,17)], "~/Desktop/big_data.csv", row.names = F)
 
-input_list <- c("no_dox","dox_0125", "dox_0187", "dox_021", "dox_025", "dox_075")
-datalist <- list()
-for (i in input_list) {
-  ####change path here
-  input_splicing <- fread(paste0("/Users/matteozanovello/Documents/GitHub/tdp43_concentration/data/majiq_single/", i, "_parsed.csv"))
-  datalist[[i]] <- input_splicing
-}
-big_data <- rbindlist(datalist, idcol = TRUE)
-big_data$.id <- factor(big_data$.id, levels = input_list)
+#input_list <- c("no_dox","dox_0125", "dox_0187", "dox_021", "dox_025", "dox_075")
+#datalist <- list()
+#for (i in input_list) {
+#  ####change path here
+#  input_splicing <- fread(paste0("/Users/matteozanovello/Google Drive/My Drive/backup/Documents/GitHub/tdp43_concentration/data/majiq_single/", i, "_parsed.csv"))
+#  datalist[[i]] <- input_splicing
+#}
+#big_data <- rbindlist(datalist, idcol = TRUE)
+#big_data$.id <- factor(big_data$.id, levels = input_list)
 
 
 ###filter
@@ -27,7 +27,7 @@ big_data_filtereds <- big_data[,c(1,2,5,9,11,17)] %>% #1701012/6 = 283502
            (delta021018 > - 0.1) &
            (delta018012 > - 0.1) &
            (delta012000 > - 0.1)) %>%
-  mutate(cryptic = ifelse(no_dox < 0.05 & de_novo_junctions == 0, "cryptic", "no_cryptic"))#1346
+  mutate(cryptic = ifelse(no_dox < 0.05, "cryptic", "no_cryptic"))#1346
 big_data_filtereds_dedup <- big_data_filtereds[!duplicated(big_data_filtereds$paste_into_igv_junction),] #1325
 
 table(big_data_filtereds$cryptic)
@@ -61,16 +61,37 @@ percentile_top <- c(#99, 95, 90, 80, 75,
 
 
 #####method?
+list_gene = c(#"STMN2", 
+  #"UNC13A", #"INSR", 
+  #"KCNQ2"
+  "AARS1")
 big_data_filtereds_early_late_new <- big_data_filtereds_dedup %>%
-  mutate(color_gene_name = as.factor(as.character(ifelse((dox_0125-no_dox > 0.1 | dox_0187-no_dox > 0.1) & 
-                                                           dox_075-no_dox > 0.2, "early", 
-                                                                ifelse(dox_025-no_dox < 0.1 & 
-                                                                         dox_075-no_dox > 0.2, "late",
-                                                                       ifelse((dox_021-no_dox > 0.1 | dox_025-no_dox > 0.1) & 
-                                                                                dox_075-no_dox > 0.2, "intermediate",
-                                                                              "none")))))) %>%
+  filter(cryptic == "cryptic" & dox_075-no_dox > 0.15) %>%
+  mutate(color_gene_name = as.factor(as.character(ifelse(gene_name %in% list_gene, "top",
+                                                         ifelse(dox_0125-no_dox > 0.2, "earli",
+                                                                ifelse(dox_0187-no_dox > 0.2, "early",
+                                                                       ifelse(dox_025-no_dox < 0.2, "late", "intermediate"))))))) %>%
   pivot_longer(cols = c("no_dox","dox_0125", "dox_0187", "dox_021", "dox_025", "dox_075")) %>%
-  mutate(name = factor(name, levels = c("no_dox","dox_0125", "dox_0187", "dox_021", "dox_025", "dox_075")))
+  mutate(name = factor(name, levels = c("no_dox","dox_0125", "dox_0187", "dox_021", "dox_025", "dox_075"))) %>%
+  mutate(label_junction = case_when(name == "dox_025" & gene_name %in% list_gene ~ gene_name, T ~ ""))
+table(big_data_filtereds_early_late_new$color_gene_name)
+
+big_data_filtereds_early_late_new %>%
+  ggplot(mapping = aes(x = name, y = value, group = paste_into_igv_junction)) +
+  geom_line(aes(color = color_gene_name), show.legend = F) +
+  geom_text_repel(aes(label = label_junction), point.padding = 0.3,
+                  nudge_y = 0.2, min.segment.length = 0.5, box.padding  = 2, max.overlaps = Inf, size=4, show.legend = F) +
+  geom_hline(yintercept = 0.2, linetype = "dotted") +
+  scale_color_manual(values = c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#000000")) +
+  #scale_alpha_manual(values = c(0.1,1)) +
+  xlab("TDP-43 knockdown level") +
+  ylab("PSI") +
+  scale_x_discrete(labels = c("-", "+", "++", "+++", "++++", "+++++")) +
+  scale_y_continuous(breaks=seq(0,1,0.2)) +
+  #  labels = c(0,0.2,0.4,0.6,0.8,1)) +
+  theme_classic()
+
+  
 #data_plot2 <- as.data.frame(table(big_data_filtereds_early_late_new$color_gene_name, big_data_filtereds_early_late_new$cryptic))
 
 plot_early_late <- big_data_filtereds_early_late_new %>%
@@ -94,7 +115,7 @@ print(plot_early_late)
 
 
 ###Method 0 - with names
-list_gene <- c("ATG4B")
+#list_gene <- c("ATG4B")
 big_data_filtereds_with_names <- big_data_filtereds_dedup %>%
   filter(no_dox < 0.05) %>%
   #mutate(alpha_gene_name = ifelse(gene_name %in% list_gene, 1,0.2)) %>%
@@ -105,9 +126,10 @@ big_data_filtereds_with_names <- big_data_filtereds_dedup %>%
   mutate(name = factor(name, levels = c("no_dox","dox_0125", "dox_0187", "dox_021", "dox_025", "dox_075"))) %>%
   mutate(label_junction = case_when(name == "dox_025" &
                                      #(gene_name == "STMN2" | 
-                                        gene_name %in% list_gene #|
+                                        #gene_name %in% list_gene #|
                                         #(gene_name == "HDGFL2" & value > 0.40) |
-                                        #(gene_name == "UNC13A" & value > 0.4))) #| (gene_name %in% list_gene & name == "dox_075") 
+                                        (#gene_name == "UNC13A" & value > 0.4 | 
+                                          gene_name == "AARS1")  # (gene_name %in% list_gene & name == "dox_075") 
                                     ~ gene_name, T ~ "")) %>%
   mutate(color_gene_name = ifelse(gene_name %in% list_gene, "2", "1")) %>%
                                   #ifelse(paste_into_igv_junction == "chr8:79613937-79616822" |
@@ -131,7 +153,7 @@ plot_early_late <- big_data_filtereds_with_names %>%
   #  labels = c(0,0.2,0.4,0.6,0.8,1)) +
   theme_classic()
 print(plot_early_late)
-#ggsave(filename = "~/Desktop/spaghetti_plot_with_name_KCNQ2.png")
+ggsave(filename = "~/Desktop/spaghetti_plot_with_name_AARS1.png")
 
 
 ##### METHOD 1: early-late #####

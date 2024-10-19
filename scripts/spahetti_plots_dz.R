@@ -31,8 +31,8 @@ big_data_dz_filtereds <- big_data_dz[,c(1,2,5,9,11,17)] %>% #1901543/6 = 316923.
            (delta005004 > - 0.1) &
            (delta004003 > - 0.1) &
            (delta003002 > - 0.1) &
-           (delta0020 > - 0.1)) #%>%
-  #mutate(cryptic = ifelse(DZ_curves_0 < 0.06, "cryptic", "no_cryptic")) #915
+           (delta0020 > - 0.1)) %>%
+  mutate(cryptic = ifelse(DZ_curves_0 < 0.06, "cryptic", "no_cryptic")) #915
 big_data_dz_filtereds_dedup <- big_data_dz_filtereds[!duplicated(big_data_dz_filtereds$paste_into_igv_junction),] #901
 table(big_data_dz_filtereds_dedup$cryptic)
 
@@ -59,7 +59,8 @@ plot_dz_early_late <- big_data_dz_filtereds_early_late %>%
   ylab("Normalised PSI") +
   scale_x_discrete(labels = c("-", "+", "++", "+++", "++++", "+++++", "++++++", "+++++++")) +
   scale_y_continuous(breaks=seq(0,1,0.2)) +
-  facet_wrap(cryptic ~ color_gene_name, nrow = 2) +
+  facet_wrap(#cryptic
+    ~ color_gene_name, nrow = 2) +
   #  labels = c(0,0.2,0.4,0.6,0.8,1)) +
   theme_classic()
 print(plot_dz_early_late)
@@ -98,9 +99,9 @@ big_data_filtereds_normal <- big_data_filtereds_dedup %>%
 percentile_top <- c(99, 95, 90, 80, 75, 67, 50)
 
 ###Method 0 - with names
-list_gene <- c(#"CYFIP2", "SYNE1", 
+list_gene <- c(#"UNC13A", "KCNQ2")#"CYFIP2", "SYNE1", 
   "AARS1")
-big_data_filtereds_with_names <- big_data_filtereds_dedup %>%
+big_data_dz_filtereds_with_names <- big_data_dz_filtereds_dedup %>%
   #mutate(alpha_gene_name = ifelse(gene_name %in% list_gene, 1,0.2)) %>%
   #dplyr::mutate(label_junction = case_when(.id == input_list[length(input_list) - 3] & (color_gene_name == "late" | color_gene_name == "early") ~ gene_name, T ~ ""))
   #as.factor(as.character(ifelse(dox_0187 > 0.3 & dox_075 > 0.3, "early", 
@@ -108,23 +109,25 @@ big_data_filtereds_with_names <- big_data_filtereds_dedup %>%
   pivot_longer(cols = c("DZ_curves_0","DZ_curves_002", "DZ_curves_003", "DZ_curves_004", "DZ_curves_005", "DZ_curves_0075", "DZ_curves_01", "DZ_curves_1")) %>%
   mutate(name = factor(name, levels = c("DZ_curves_0","DZ_curves_002", "DZ_curves_003", "DZ_curves_004", "DZ_curves_005", "DZ_curves_0075", "DZ_curves_01", "DZ_curves_1"))) %>%
   mutate(label_junction = case_when(name == "DZ_curves_1" &
-                                       ((gene_name == "STMN2" & value > 0.5 ) | 
+                                       (gene_name == "AARS1") # & value > 0.5 ) | 
                                     #      (gene_name == "AARS1" & value > 0.12) |
-                                         (gene_name == "UNC13A" & value > 0.51) | 
-                                      (gene_name %in% list_gene & name == "DZ_curves_1")) ~ gene_name, T ~ "")) %>%
-  mutate(color_gene_name = ifelse(gene_name %in% list_gene | 
-                                    paste_into_igv_junction == "chr19:17641556-17642414" |
-                                    paste_into_igv_junction == "chr19:17642541-17642845" |
-                                    paste_into_igv_junction == "chr8:79613937-79616822", "3",
+                                         #(gene_name == "UNC13A" & value > 0.8)) 
+                                      ~ gene_name, T ~ "")) %>%  
+                                      #(gene_name %in% list_gene & name == "DZ_curves_1")) 
+  mutate(color_gene_name = ifelse(gene_name %in% list_gene,"2",  
+                                    #paste_into_igv_junction == "chr19:17641556-17642414", "2",
+                                  
+                                    #paste_into_igv_junction == "chr19:17642541-17642845" |
+                                    #paste_into_igv_junction == "chr8:79613937-79616822", "3",
                                   #ifelse(paste_into_igv_junction == "chr8:79613937-79616822" |
                                   #         paste_into_igv_junction == "chr16:70271972-70272796" |
                                   #         paste_into_igv_junction == "chr19:17641556-17642414", "2",
                                   "1")) %>%
   mutate(alpha_gene_name = ifelse(color_gene_name == "3" | color_gene_name == "2", "2", "1"))         
-table(big_data_filtereds_with_names$color_gene_name)
+table(big_data_dz_filtereds_with_names$color_gene_name)
 
 
-plot_early_late <- big_data_filtereds_with_names %>%
+plot_early_late <- big_data_dz_filtereds_with_names %>%
   ggplot(mapping = aes(x = name, y = value, group = paste_into_igv_junction)) +
   geom_line(aes(color = color_gene_name, alpha = alpha_gene_name), show.legend = F) +
   geom_text_repel(aes(label = label_junction), point.padding = 0.3,
@@ -139,7 +142,7 @@ plot_early_late <- big_data_filtereds_with_names %>%
   #  labels = c(0,0.2,0.4,0.6,0.8,1)) +
   theme_classic()
 print(plot_early_late)
-
+ggsave(filename = "~/Desktop/spaghetti_plot_with_name_AARS1_dz.png")
 
 ##### METHOD 1: early-late #####
 #### raw PSI ####

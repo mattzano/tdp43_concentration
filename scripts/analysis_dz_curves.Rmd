@@ -90,6 +90,8 @@ list_gene <- c("UNC13A", "STMN2"#, "AARS", #"UNC13B",
                  #"CYFIP2", "SYNE1"
                )
 
+write.table(big_delta_de_dz, file = "~/Desktop/diff_expr_sk.csv", sep = ",", row.names = F) #"normed_counts_dz_all.csv")
+
 plot_de_dz <- big_delta_de_dz %>%
   mutate(color_gene_name = ifelse(log2FoldChange > 0, "up","down")) %>%
   mutate(alpha_gene_name = ifelse(padj < 0.05, "sig", "non_sig")) %>%
@@ -119,6 +121,8 @@ plot_de_dz %>%
 
 salmon_deseq2(levels_dz, sample_dir_dz, metadata_dir_dz)
 assign("normed_counts_dz_curves", normed_counts)
+
+write.table(normed_counts_dz_curves, "~/Desktop/normed_counts_sk.csv", sep = ",",  row.names = F)
 
 #write.csv(normed_counts_dz_curves, file = "~/Documents/GitHub/tdp43_concentration/results/normed_counts_dz/normed_counts_dz_all.csv") #"normed_counts_dz_all.csv")
 normed_counts_long_dz <- normed_counts_dz_curves[,c(2:25,27)] %>% 
@@ -204,47 +208,6 @@ biplot(pp,
 ```
 
 
-```{r}
-colnames(featureCounts) <- c("ensgene", 
-                           "DOX_0.0125_1", "DOX_0.0125_2", "DOX_0.0125_3",
-                           "DOX_0.0187_1", "DOX_0.0187_2", "DOX_0.0187_3",
-                           "DOX_0.021", "DOX_0.021_2", "DOX_0.021_3", 
-                           "DOX_0.025_1", "DOX_0.025_2", "DOX_0.025_3", 
-                           "DOX_0.075_1", "DOX_0.075_2", "DOX_0.075_3",
-                           "NT_0_1", "NT_0_2", "NT_0_3", 
-                           "gene_name")
-
-pca_table <- featureCounts[,1:19] %>%
-    column_to_rownames('ensgene')
-annotation <- featureCounts[,c(1,20)] %>%
-    column_to_rownames('ensgene')
-
-path_to_meta_you_downloaded <-  "data/metadata.csv" #update this
-meta_df <- fread(path_to_meta_you_downloaded)
-meta_df <- meta_df %>%
-    column_to_rownames('sample') 
-meta_df[,1] <- as.factor(meta_df[,1])
-meta_df[,2] <- as.factor(meta_df[,2])
-
-pcaExplorer(countmatrix = pca_table, coldata = meta_df, annotation = annotation)
-
-
-gene_list <-  c("SYT7", "RSF1", "KCNQ2", "HDGFL2", "AGRN", "ACTL6B", "MYO18A", "MYO1C", "KALRN", "DNM1", "CAMK2B", "ADGRB1","TARDBP")
-grepper <- c("a", "b", "c", "f", "h")
-names(grepper) <- c("dox00125", "dox00187", "dox0021", "dox0025", "dox0075")
-for (j in grepper) {
-my.dds <- run_standard_deseq("data/feature_count", #change here!!
-                             base_grep = "NT",
-                             contrast_grep = "DOX",  
-                             grep_pattern = j,
-                             baseName = "Untreated",
-                             contrastName = 'TDP43KD')
-
-bbb <- label_significant(my.dds$results_table, gene_list, log2FoldCut = 1.5, log10padj = 5) + annotate("text", x=4, y=-0.25, label=names(j))
-plot(bbb)
-}
-```
-
 splicing volcano and upset plot
 ```{r}
 #base <- "Control"
@@ -304,66 +267,4 @@ upset(big_data_matrix_dz * 1, nsets = 7,
       order.by = "freq", keep.order = T, nintersects = 23,
       mainbar.y.label = "Junction Intersections", 
       sets.x.label = "Junction Per Level of TDP-43 KD")
-```
-
-```{r}
-postar_bed <- fread("~/Desktop/rbp_bed/human_RBP_binding_sites_sorted.bed", 
-                    col.names = c("seqnames", "start", "end", "dataset", "score", "strand", "QC")) ####use TDP only
-
-ensembl <- biomaRt::useEnsembl(biomart = "genes", dataset = "hsapiens_gene_ensembl")
-humandb <- biomaRt::getBM(attributes = c("external_gene_name", 
-                                         "ensembl_gene_id", "ensembl_transcript_id", "transcript_appris", 
-                                         "uniprotswissprot", "uniprotsptrembl", "uniprot_isoform"), 
-                          mart = ensembl)
-princ <- humandb[which(humandb$transcript_appris == "principal1" |
-                       humandb$transcript_appris == "principal2" | 
-                       humandb$transcript_appris == "principal3" | 
-                       humandb$transcript_appris == "principal4" |
-                       humandb$transcript_appris == "principal5"), ]
-
-
-cds_regions = cdsBy(TxDb.Hsapiens.UCSC.hg38.knownGene, "tx",use.names = TRUE)
-cds_regions = unlist(cds_regions)
-cds_regions$transcript_id = gsub("\\..*", "", names(cds_regions))
-
-exons_regions = exonsBy(TxDb.Hsapiens.UCSC.hg38.knownGene, "tx",use.names = TRUE)
-exons_regions = unlist(exons_regions)
-exons_regions$transcript_id = gsub("\\..*", "", names(exons_regions))
-
-file_path = "data/sj_tabs/normalized_annotated/"
-suffix = "_normalized_annotated.csv"
-psi_files = list.files(file_path,
-                       pattern = suffix,
-                       full.names = TRUE)
-psi_list_full = purrr::map(psi_files,my_clean_reader)
-samp_ids = base::tolower(purrr::simplify(purrr::map(psi_files, basename)))
-samp_ids = gsub(suffix,"",samp_ids)
-##add on the name as an additional column
-psi_list_full = purrr::map2(psi_list_full, samp_ids, ~cbind(.x, SampleID = .y))
-psi_list_full = purrr::map(psi_list_full,my_name_fixer)
-psi_list_full = data.table::rbindlist(psi_list_full)
-
-for (i in contrast) {
- transcript_bind_plot("UNC13A", i)}
-```
-
-after running IRFinder, compute DE
-```{r}
-ir_top_level = "data/irfinder/"
-experiment = make_deframe_irfinder(ir_top_level,base_grep = "NT",
-                                   contrast_grep = "DOX")$metadata
-paths = make_deframe_irfinder(ir_top_level,base_grep = "NT",
-                                   contrast_grep = "DOX")$path
-
-for (j in c("0.0125", "0.0187", "0.021", "0.025", "0.075")) {
-    experiment <- filter(experiment, grepl(j, SampleNames) | Condition == "control")
-    paths <- paths[grepl(j, paths) | grepl("NT", paths)]
-}
-
-dds = run_deseq_ir(paths,experiment = experiment)
-result = return_formated_results(dds)
-result0075 <- result %>% 
-    mutate(ir_change = TDPKD -  control)
-
-result_merged <- dplyr::bind_rows(list(result00125, result00187, result0021, result0025, result0075), .id = 'source')
 ```

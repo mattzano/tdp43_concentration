@@ -1,0 +1,1549 @@
+---
+title: "umap"
+author: "matteo"
+date: "2023-06-24"
+output: html_document
+---
+
+---
+title: "mtcars"
+author: "matteo"
+date: "2023-06-24"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Install required packages if not already installed
+install.packages("umap")
+install.packages("dbscan")
+
+
+# Load the required packages
+library(umap)
+library(tidyverse)
+library(dbscan)
+library(ggrepel)
+```
+
+```{r}
+# Load the mtcars dataset
+data(mtcars)
+
+# Select the numeric columns for UMAP analysis
+mtcars_numeric <- mtcars[, sapply(mtcars, is.numeric)]
+
+# Run UMAP on the numeric columns
+umap_result <- umap(mtcars_numeric)
+
+# Create a data frame with UMAP results
+umap_df <- data.frame(umap_result$layout)
+colnames(umap_df) <- c("UMAP_1", "UMAP_2")
+
+# Add car names to the UMAP data frame
+umap_df$car <- row.names(mtcars)
+
+# Perform k-means clustering
+kmeans_clusters <- kmeans(mtcars_numeric, centers = 3)  # You can change the number of clusters as desired
+
+# Add cluster assignments to the UMAP data frame
+umap_df$cluster <- as.factor(kmeans_clusters$cluster)
+
+# Plot UMAP with clusters using ggplot2
+ggplot(umap_df, aes(x = UMAP_1, y = UMAP_2, color = cluster)) +
+  geom_point() +
+  labs(title = "UMAP Visualization of mtcars Dataset with K-means Clusters") +
+  theme_minimal()
+
+```
+
+```{r}
+# Perform k-means clustering
+kmeans_clusters <- kmeans(mtcars_numeric, centers = 3)  # You can change the number of clusters as desired
+
+# Extract the cluster centroids
+centroids <- kmeans_clusters$centers
+
+# Identify variables responsible for clustering
+variable_importance <- apply(centroids, 2, var)  # Compute variance for each variable across clusters
+
+# Sort variables by importance (variance)
+variable_importance <- sort(variable_importance, decreasing = TRUE)
+
+# Display the variables responsible for clustering
+variable_importance
+
+ggplot(mtcars, aes(x = disp, y = hp, color = factor(kmeans_clusters$cluster))) +
+  geom_point() +
+  labs(title = "Disp vs HP with Cluster Colors") +
+  theme_minimal()
+```
+SY5Ys
+```{r}
+####same but on my data
+#load df and manipulate
+manual_validation_sy5y <- read.table("/Users/AL/Library/CloudStorage/GoogleDrive-superdino00@gmail.com/My Drive/backup/Documents/phd/research_lines/tdp-43 curves/manual_validation_curves/shsy_validated_events.ann.csv", sep = ",", header = T) %>% 
+    mutate(paste_into_igv_junction = paste0(chr, ":", start, "-", end)) %>%
+  mutate(is_cryptic = ifelse(ref_psi < 0.05, 1, 0)) %>%
+  filter(is_cryptic == 1) %>%
+  dplyr::select(c(25,4,6,11:15,8,9,17))
+manual_validation_sy5y <- manual_validation_sy5y[order(manual_validation_sy5y$`dox075.vs.nt`, decreasing = T),]
+names(manual_validation_sy5y)[3] <- "dox0"
+
+manual_validation_sy5y_2 <- manual_validation_sy5y %>% 
+  group_by(gene_id) %>% 
+  mutate(across(c(3:7),max)) %>%
+  ungroup() %>%
+  distinct(gene_id, .keep_all = T) 
+manual_validation_sy5y_distinct <- manual_validation_sy5y_2 %>%  
+  mutate(dox0125 = ifelse(`dox0125.vs.nt` - dox0 < -0.05,         dox0,                   dox0 + `dox0125.vs.nt`),
+         dox0187 = ifelse(`dox0187.vs.nt` - `dox0125.vs.nt` < -0.05, dox0 + `dox0125.vs.nt`,  dox0 + `dox0187.vs.nt`),
+         dox021  = ifelse(`dox021.vs.nt`  - `dox0187.vs.nt` < -0.05, dox0 + `dox0187.vs.nt`,  dox0 + `dox021.vs.nt`),
+         dox025  = ifelse(`dox025.vs.nt`  - `dox021.vs.nt` < -0.05,  dox0 + `dox021.vs.nt`,   dox0 + `dox025.vs.nt`),
+         dox075  = ifelse(`dox075.vs.nt`  - `dox025.vs.nt` < -0.05,  dox0 + `dox025.vs.nt`,   dox0 + `dox075.vs.nt`)) %>%
+  mutate(dox0125 = ifelse(dox0125 -  dox0 < -0.05,  dox0, dox0125),
+         dox0187 = ifelse(dox0187 - dox0125 < -0.05, dox0125, dox0187),
+         dox021 = ifelse(dox021 - dox0187 < -0.05, dox0187, dox021),
+         dox025 = ifelse(dox025 - dox021 < -0.05, dox021, dox025),
+         dox075 = ifelse(dox075 - dox025 < -0.05, dox025, dox075)) %>%
+  mutate(delta_psi = dox075-dox0) %>%
+  mutate(normed_dox0 = 0,
+         normed_dox0125 = dox0125 / dox075,
+         normed_dox0187 = dox0187 / dox075,
+         normed_dox021 = dox021 / dox075,
+         normed_dox025 = dox025 / dox075,
+         normed_dox075 = 1) %>% 
+  mutate(ID=dplyr::row_number()) %>% 
+  mutate(type = ifelse((dox0125-dox0 > 0.15 | dox0187-dox0 > 0.4) & dox025-dox0 > 0.4, "Earli", 
+                       ifelse(dox0187-dox0 > 0.15, "Early",
+                              ifelse(dox025-dox0 < 0.10, "Late", "Intermediate")))) %>% 
+                              #ifelse(`dox021.vs.nt` > 0.15 | `dox025.vs.nt` > 0.15, "Intermediate", "Late")))) %>%
+  mutate(type_normal = ifelse(normed_dox0125 > 0.2, "Earli", 
+                       ifelse(normed_dox0187 > 0.2, "Early",
+                              ifelse(normed_dox021 > 0.2 | normed_dox025 > 0.2, "Intermediate", "Late")))) %>%
+  mutate(delta_psi_max = ntile(delta_psi, 100)) %>% 
+  mutate(max_psi_2 = ifelse(delta_psi > 0.6, "top_max_psi", 
+                          #ifelse(delta_psi > 0.3, "mid_max_psi", 
+                                 "bottom_max_psi")) %>% 
+  mutate(max_psi = ifelse(delta_psi_max > 58, "Top",
+                          ifelse(delta_psi_max > 30, "Medium", 
+                                 "Bottom"))) %>% 
+  mutate(max_slope = pmax(dox075-dox025, dox025-dox021, dox021-dox0187, dox0187-dox0125, dox0125-dox0)) %>%
+  mutate(percentile = ntile(max_slope, 100)) %>%
+  mutate(slopenes = as.character(ifelse(percentile > 50, "steep_slope",
+                                                         #ifelse(percentile > 30, "stedd_slope", 
+                                        "steady_slope")))
+  #mutate(color_gene_name = as.factor(as.character(ifelse(gene_id %in% list_gene, "top", type)))) 
+                      # ifelse(Type == "Early" | Type == "Intermediate", "Intermediate", "Late")))
+
+table(manual_validation_sy5y_distinct$type)
+table(manual_validation_sy5y_distinct$type_normal)
+table(manual_validation_sy5y_distinct$max_psi)
+table(manual_validation_sy5y_distinct$max_psi_2)
+table(manual_validation_sy5y_distinct$slopenes)
+
+
+###trial
+mtcars_numeric <- manual_validation_sy5y_distinct[,c(3,12:16)]#[,c(3:8)] #[,c(18:23)]#
+
+# Run UMAP on the numeric columns
+set.seed(420)
+umap_result <- umap(mtcars_numeric, n_neighbors = 12, min_dist = 0.00000001)
+
+# Create a data frame with UMAP results
+umap_df <- data.frame(umap_result$layout)
+colnames(umap_df) <- c("UMAP_1", "UMAP_2")
+
+dbscanning <- dbscan(umap_result$layout, eps = 1, minPts = 10)
+dbscanning
+umap_df$cluster <- factor(dbscanning$cluster)
+ggplot(umap_df, aes(x = UMAP_1, y = UMAP_2, color = cluster)) +
+  geom_point() +
+  #geom_text_repel(aes(label = gene_id), color = "black", max.overlaps = Inf) +
+  #labs(title = "") +
+  scale_color_brewer(palette = "Set2") +
+  theme_minimal()
+umap_df2 <- umap_df %>% rownames_to_column("ID") %>%
+  mutate(ID = as.integer(ID)) %>%
+  right_join(manual_validation_sy5y_distinct)
+table(umap_df2$cluster, umap_df2$type)
+
+#list_gene = c("AARS1", "STMN2", "INSR", "UNC13A", "HDGFL2", "RPTOR", "NUP188", "RANBP1", "ATG4B", "KCNQ2")
+list_gene = c(#"ADCY1", 
+  #"EPB41L4A", 
+  #"GPSM2", "PRELID3A", 
+  "STMN2", "SYT7","UNC13A","CELF5", "ELAVL3", "HDGFL2", #"IQCE", "KALRN", "MGAT5B", "TRRAP",
+              "AARS1","AKT3", "ATG4B", "CDK7", "PHF2")#, "ADGRL1",  "RSF1")
+umap_df2 %>%
+  mutate(color_gene_name = as.factor(as.character(ifelse(gene_id %in% list_gene, "top", type)))) %>% 
+  mutate(label_junction = case_when(color_gene_name == "top" ~ gene_id, T ~ "")) %>% 
+  ggplot(aes(x = UMAP_1, y = UMAP_2)) +
+  geom_point(aes(color = cluster, alpha = max_slope, shape = Type, size = delta_psi)) +
+  #geom_text_repel(aes(label = label_junction), color = "black", 
+  #                point.padding = 0.3, min.segment.length = 0.5, 
+  #                box.padding  = 2, max.overlaps = Inf, show.legend = F) +
+  #labs(title = "") +
+  #facet_wrap(facets = vars(type)) +
+  scale_alpha_continuous(range = c(0.4,1)) +
+  scale_color_brewer(palette = "Set2") +
+  theme_minimal()
+
+umap_df2 %>%
+  mutate(color_gene_name = as.factor(as.character(ifelse(gene_id %in% list_gene, "top", type)))) %>% 
+  mutate(label_junction = case_when(color_gene_name == "top" ~ gene_id, T ~ "")) %>% 
+  ggplot(aes(x = UMAP_1, y = UMAP_2)) +
+  geom_point(aes(color = cluster, alpha = max_slope, shape = type, size = delta_psi)) +
+  geom_text_repel(aes(label = label_junction), color = "black", 
+                  point.padding = 0.3, min.segment.length = 0.5, 
+                  box.padding  = 2, max.overlaps = Inf, show.legend = F) +
+  #labs(title = "") +
+  #facet_wrap(facets = vars(type)) +
+  scale_alpha_continuous(range = c(0.4,1)) +
+  scale_color_brewer(palette = "Set2") +
+  theme_minimal()
+
+{umap_df2 %>%
+  mutate(color_gene_name = as.factor(as.character(ifelse(gene_id %in% list_gene, "top", type)))) %>% 
+  mutate(label_junction = case_when(color_gene_name == "top" ~ gene_id, T ~ "")) %>% 
+  ggplot(aes(x = exp(delta_psi), y = log10(max_slope))) +
+  geom_point(aes(color = cluster, shape = type, size = 5)) +
+  geom_text_repel(aes(label = label_junction), color = "black", 
+                  point.padding = 0.3, min.segment.length = 0.5, 
+                  box.padding  = 2, max.overlaps = Inf, show.legend = F) +
+  #labs(title = "") +
+  #facet_wrap(facets = vars(type_normal)) +
+  scale_size_identity() +
+  scale_alpha_continuous(range = c(0.4,1)) +
+  scale_color_brewer(palette = "Set2") +
+  theme_minimal()}
+
+#write.csv(umap_df2, "~/Desktop/umap.csv")
+
+#list_gene <- c("")
+umap_df2 %>%
+  mutate(color_gene_name = as.factor(as.character(ifelse(gene_id %in% list_gene, "top", cluster)))) %>% 
+  pivot_longer(cols = c("normed_dox0","normed_dox0125", "normed_dox0187", "normed_dox021", "normed_dox025", "normed_dox075")) %>%
+  mutate(name = factor(name, levels = c("normed_dox0","normed_dox0125", "normed_dox0187", "normed_dox021", "normed_dox025", "normed_dox075"))) %>%
+  mutate(label_junction = case_when(name == "dox025" & color_gene_name == "top" ~ gene_id, T ~ "")) %>%
+  ggplot(mapping = aes(x = name, y = value, group = paste_into_igv_junction)) +
+  geom_line(aes(color = color_gene_name,  
+                #alpha = delta_psi, 
+                linewidth = max_slope, linetype = type)) +
+  geom_text_repel(aes(label = label_junction), point.padding = 0.3, min.segment.length = 0.5, 
+                  box.padding  = 2, max.overlaps = Inf, show.legend = F) +
+  geom_hline(yintercept = 0.15, linetype = "dotted") +
+  #scale_color_manual(values = c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#000000")) + #
+  #scale_alpha_manual(values = c(0.1,1)) +
+  xlab("TDP-43 knockdown level") +
+  ylab("PSI") +
+  scale_x_discrete(labels = c("-", "+", "++", "+++", "++++", "+++++")) +
+  scale_y_continuous(breaks=seq(0,1,0.2)) +
+  #scale_color_brewer(palette = "Set2") +
+  scale_color_manual(values = c("#66C2A5", "#FC8D62", "#8DA0CB", "#E78AC3", "#A6D854", "#FFD92F", "#E5C494", "black")) +
+  scale_linewidth_continuous(range = c(0.2,1)) +
+  facet_grid(rows = vars(cluster)) + #, cols = vars(type_normal)) +
+  #facet_grid(rows = vars(max_psi_2), cols = vars(slopenes)) +
+  #  labels = c(0,0.2,0.4,0.6,0.8,1)) +
+  theme_classic()
+
+#list_gene = "AARS1"
+umap_df2 %>%
+  mutate(color_gene_name = as.factor(as.character(ifelse(gene_id %in% list_gene, "top", cluster)))) %>% 
+  pivot_longer(cols = c("dox0","dox0125", "dox0187", "dox021", "dox025", "dox075")) %>%
+  mutate(name = factor(name, levels = c("dox0","dox0125", "dox0187", "dox021", "dox025", "dox075"))) %>%
+  mutate(label_junction = case_when(name == "dox025" & color_gene_name == "top" ~ gene_id, T ~ "")) %>%
+  ggplot(mapping = aes(x = name, y = value, group = paste_into_igv_junction)) +
+  geom_line(aes(color = color_gene_name, alpha = delta_psi, linewidth = type, linetype = slopenes)) +
+  geom_text_repel(aes(label = label_junction), #point.padding = 0.3, 
+                  min.segment.length = 0.5, 
+                  #box.padding  = 2, 
+                  max.overlaps = Inf, show.legend = F) +
+  geom_hline(yintercept = 0.15, linetype = "dotted") +
+  #scale_color_manual(values = c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#000000")) + #
+  #scale_alpha_manual(values = c(0.1,1)) +
+  xlab("TDP-43 knockdown level") +
+  ylab("PSI") +
+  scale_x_discrete(labels = c("-", "+", "++", "+++", "++++", "+++++")) +
+  scale_y_continuous(breaks=seq(0,1,0.2)) +
+  #scale_color_brewer(palette = "Set2") +
+  scale_color_manual(values = c("#66C2A5", "#FC8D62", "#8DA0CB", "#E78AC3", "#A6D854", "#FFD92F","#E5C494", "black")) +
+  scale_linewidth_discrete(range = c(1,0.2)) +
+  scale_alpha_continuous(range = c(0.2,0.8)) +
+  scale_linetype_manual(values = c("dashed", "solid")) +
+  facet_grid(rows = vars(cluster), cols = vars(type)) +
+  #facet_grid(rows = vars(max_psi_2), cols = vars(slopenes)) +
+  theme_classic()
+```
+DZ
+```{r}
+####same but on my data
+#load df and manipulate
+manual_validation_dz <- read.table("/Users/AL/Library/CloudStorage/GoogleDrive-superdino00@gmail.com/My Drive/backup/Documents/phd/research_lines/tdp-43 curves/manual_validation_curves/dz_validated_events.ann.csv", sep = ",", header = T) %>% 
+    mutate(paste_into_igv_junction = paste0(chr, ":", start, "-", end)) %>%
+  mutate(is_cryptic = ifelse(ref_psi < 0.05, 1, 0)) %>%
+  filter(is_cryptic == 1) %>%
+  dplyr::select(c(24,4,6,11:15,23,16,8,9,18))
+manual_validation_dz <- manual_validation_dz[order(manual_validation_dz$`dz1.vs.nt`, decreasing = T),]
+names(manual_validation_dz)[3] <- "dox0"
+
+manual_validation_dz_2 <- manual_validation_dz %>% 
+  group_by(gene_id) %>% 
+  mutate(across(c(3:10),max)) %>%
+  ungroup() %>%
+  distinct(gene_id, .keep_all = T) 
+manual_validation_dz_distinct <- manual_validation_dz_2 %>%  
+  mutate(dox002 = ifelse(`dz002.vs.nt` - dox0 < -0.05,         dox0,                   dox0 + `dz002.vs.nt`),
+         dox003 = ifelse(`dz003.vs.nt` - `dz002.vs.nt` < -0.05, dox0 + `dz002.vs.nt`,  dox0 + `dz003.vs.nt`),
+         dox004  = ifelse(`dz004.vs.nt` - `dz003.vs.nt` < -0.05, dox0 + `dz003.vs.nt`,  dox0 + `dz004.vs.nt`),
+         dox005  = ifelse(`dz005.vs.nt` - `dz004.vs.nt` < -0.05, dox0 + `dz004.vs.nt`,  dox0 + `dz005.vs.nt`),
+         dox0075  = ifelse(`dz075.vs.nt` - `dz005.vs.nt` < -0.05, dox0 + `dz005.vs.nt`,  dox0 + `dz075.vs.nt`),
+         dox01 = ifelse(`dz01.vs.nt` - `dz075.vs.nt` < -0.05, dox0 + `dz075.vs.nt`,  dox0 + `dz01.vs.nt`),
+         dox1 = ifelse(`dz1.vs.nt` - `dz01.vs.nt` < -0.05, dox0 + `dz01.vs.nt`,  dox0 + `dz1.vs.nt`)) %>%
+  mutate(dox002 = ifelse(dox002 -  dox0 < -0.05,  dox0, dox002),
+         dox003 = ifelse(dox003 - dox002 < -0.05, dox002, dox003),
+         dox004 = ifelse(dox004 - dox003 < -0.05, dox003, dox004),
+         dox005 = ifelse(dox005 - dox004 < -0.05, dox004, dox005),
+         dox0075 = ifelse(dox0075 - dox005 < -0.05, dox005, dox0075),
+         dox01 = ifelse(dox01 - dox0075 < -0.05, dox0075, dox01),
+         dox1 = ifelse(dox1 - dox01 < -0.05, dox01, dox1)) %>%
+  mutate(delta_psi = dox1-dox0) %>%
+  mutate(normed_dox0 = 0,
+         normed_dox002 = dox002 / dox1,
+         normed_dox003 = dox003 / dox1,
+         normed_dox004 = dox004 / dox1,
+         normed_dox005 = dox005 / dox1,
+         normed_dox0075 = dox0075 / dox1,
+         normed_dox01 = dox01 / dox1,
+         normed_dox1 = 1) %>% 
+  mutate(ID=dplyr::row_number()) %>% 
+  mutate(type = ifelse((dox002-dox0 > 0.15 | dox003-dox0 > 0.3) & dox1-dox0 > 0.4, "Earli", 
+                       ifelse(dox003-dox0 > 0.15 | dox004-dox0 > 0.15, "Early",
+                              ifelse(dox005-dox0 < 0.10, "Late", "Intermediate")))) %>% 
+                              #ifelse(`dox021.vs.nt` > 0.15 | `dox025.vs.nt` > 0.15, "Intermediate", "Late")))) %>%
+  #mutate(type_normal = ifelse(normed_dox0125 > 0.2, "Earli", 
+  #                     ifelse(normed_dox0187 > 0.2, "Early",
+  #                            ifelse(normed_dox021 > 0.2 | normed_dox025 > 0.2, "Intermediate", "Late")))) %>%
+  mutate(delta_psi_max = ntile(delta_psi, 100)) %>% 
+  mutate(max_psi_2 = ifelse(delta_psi > 0.6, "top_max_psi", 
+                          #ifelse(delta_psi > 0.3, "mid_max_psi", 
+                                 "bottom_max_psi")) %>% 
+  mutate(max_psi = ifelse(delta_psi_max > 58, "Top",
+                          ifelse(delta_psi_max > 30, "Medium", 
+                                 "Bottom"))) %>% 
+  mutate(max_slope = pmax(dox1 - dox01, dox01 - dox0075, dox0075 - dox005, dox005 - dox004, 
+                          dox004 - dox003, dox003 - dox002, dox002 -  dox0)) %>%
+  mutate(percentile = ntile(max_slope, 100)) %>%
+  mutate(slopenes = as.character(ifelse(percentile > 50, "steep_slope",
+                                                         #ifelse(percentile > 30, "stedd_slope", 
+                                        "steady_slope")))
+  #mutate(color_gene_name = as.factor(as.character(ifelse(gene_id %in% list_gene, "top", type)))) 
+                      # ifelse(Type == "Early" | Type == "Intermediate", "Intermediate", "Late")))
+
+table(manual_validation_dz_distinct$type)
+#table(manual_validation_dz_distinct$type_normal)
+table(manual_validation_dz_distinct$max_psi)
+table(manual_validation_dz_distinct$max_psi_2)
+table(manual_validation_dz_distinct$slopenes)
+
+
+###trial
+mtcars_numeric <- manual_validation_dz_distinct[,c(3,14:20)]#[,c(3:8)] #[,c(18:23)]#
+
+# Run UMAP on the numeric columns
+set.seed(420)
+umap_result <- umap(mtcars_numeric, n_neighbors = 6, min_dist = 0.000000001)
+
+# Create a data frame with UMAP results
+umap_df <- data.frame(umap_result$layout)
+colnames(umap_df) <- c("UMAP_1", "UMAP_2")
+
+dbscanning <- dbscan(umap_result$layout, eps = 0.8, minPts = 6)
+dbscanning
+umap_df$cluster <- factor(dbscanning$cluster)
+ggplot(umap_df, aes(x = UMAP_1, y = UMAP_2, color = cluster)) +
+  geom_point() +
+  #geom_text_repel(aes(label = gene_id), color = "black", max.overlaps = Inf) +
+  #labs(title = "") +
+  scale_color_brewer(palette = "Set2") +
+  theme_minimal()
+umap_df2 <- umap_df %>% rownames_to_column("ID") %>%
+  mutate(ID = as.integer(ID)) %>%
+  right_join(manual_validation_dz_distinct)
+table(umap_df2$cluster, umap_df2$type)
+
+#list_gene = c("AARS1", "STMN2", "INSR", "UNC13A", "HDGFL2", "RPTOR", "NUP188", "RANBP1", "ATG4B", "KCNQ2")
+list_gene = c(#"ADCY1", 
+  #"EPB41L4A", 
+  #"GPSM2", "PRELID3A", 
+  "STMN2", "SYT7","UNC13A","CELF5", "ELAVL3", "HDGFL2", #"IQCE", "KALRN", "MGAT5B", "TRRAP",
+              "AARS1","AKT3", "ATG4B", "CDK7", "PHF2")#, "ADGRL1",  "RSF1")
+umap_df2 %>%
+  mutate(color_gene_name = as.factor(as.character(ifelse(gene_id %in% list_gene, "top", cluster)))) %>% 
+  mutate(label_junction = case_when(color_gene_name == "top" ~ gene_id, T ~ "")) %>% 
+  ggplot(aes(x = UMAP_1, y = UMAP_2)) +
+  geom_point(aes(color = cluster, shape = Type, size = 3)) +
+  geom_text_repel(aes(label = label_junction), color = "black", 
+                  point.padding = 0.3, min.segment.length = 0.5, 
+                  box.padding  = 2, max.overlaps = Inf, show.legend = F) +
+  #labs(title = "") +
+  #facet_wrap(facets = vars(type)) +
+  #scale_alpha_continuous(range = c(0.4,1)) +
+  scale_color_brewer(palette = "Set2") +
+  theme_minimal()
+
+{umap_df2 %>%
+  mutate(color_gene_name = as.factor(as.character(ifelse(gene_id %in% list_gene, "top", type)))) %>% 
+  mutate(label_junction = case_when(color_gene_name == "top" ~ gene_id, T ~ "")) %>% 
+  ggplot(aes(x = UMAP_1, y = UMAP_2)) +
+  geom_point(aes(color = cluster, alpha = max_slope, shape = type, size = delta_psi)) +
+  geom_text_repel(aes(label = label_junction), color = "black", 
+                  point.padding = 0.3, min.segment.length = 0.5, 
+                  box.padding  = 2, max.overlaps = Inf, show.legend = F) +
+  #labs(title = "") +
+  #facet_wrap(facets = vars(type)) +
+  scale_alpha_continuous(range = c(0.4,1)) +
+  scale_color_brewer(palette = "Set2") +
+  theme_minimal()
+
+umap_df2 %>%
+  mutate(color_gene_name = as.factor(as.character(ifelse(gene_id %in% list_gene, "top", type)))) %>% 
+  mutate(label_junction = case_when(color_gene_name == "top" ~ gene_id, T ~ "")) %>% 
+  ggplot(aes(x = exp(delta_psi), y = log10(max_slope))) +
+  geom_point(aes(color = cluster, shape = type, size = 5)) +
+  geom_text_repel(aes(label = label_junction), color = "black", 
+                  point.padding = 0.3, min.segment.length = 0.5, 
+                  box.padding  = 2, max.overlaps = Inf, show.legend = F) +
+  #labs(title = "") +
+  #facet_wrap(facets = vars(type_normal)) +
+  scale_size_identity() +
+  scale_alpha_continuous(range = c(0.4,1)) +
+  scale_color_brewer(palette = "Set2") +
+  theme_minimal()}
+
+#write.csv(umap_df2, "~/Desktop/umap.csv")
+
+#list_gene <- c("")
+umap_df2 %>%
+  mutate(color_gene_name = as.factor(as.character(ifelse(gene_id %in% list_gene, "top", cluster)))) %>% 
+  pivot_longer(cols = c("dox0","dox002", "dox003", "dox004", "dox005", "dox0075", "dox01", "dox1")) %>%
+  mutate(name = factor(name, levels = c("dox0","dox002", "dox003", "dox004", "dox005", "dox0075", "dox01", "dox1"))) %>%
+  #mutate(label_junction = case_when(name == "dox025" & color_gene_name == "top" ~ gene_id, T ~ "")) %>%
+  ggplot(mapping = aes(x = name, y = value, group = paste_into_igv_junction)) +
+  geom_line(aes(color = color_gene_name,  linetype = type, alpha = max_slope, linewidth = delta_psi)) +
+  #geom_text_repel(aes(label = label_junction), point.padding = 0.3, min.segment.length = 0.5, 
+  #                box.padding  = 2, max.overlaps = Inf, show.legend = F) +
+  geom_hline(yintercept = 0.15, linetype = "dotted") +
+  #scale_color_manual(values = c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#000000")) + #
+  #scale_alpha_manual(values = c(0.1,1)) +
+  xlab("TDP-43 knockdown level") +
+  ylab("PSI") +
+  scale_x_discrete(labels = c("-", "+", "++", "+++", "++++", "+++++", "++++++", "+++++++")) +
+  scale_y_continuous(breaks=seq(0,1,0.2)) +
+  #scale_color_brewer(palette = "Set2") +
+  scale_color_manual(values = c("#66C2A5", "#FC8D62", "#8DA0CB", "#E78AC3", 
+                                "#A6D854", "#FFD92F", "#E5C494",
+                                "black")) +
+  scale_linewidth_continuous(range = c(0.2,1)) +
+  facet_grid(rows = vars(cluster), cols = vars(Type)) +
+  #facet_grid(rows = vars(max_psi_2), cols = vars(slopenes)) +
+  #  labels = c(0,0.2,0.4,0.6,0.8,1)) +
+  theme_classic()
+
+#list_gene = "AARS1"
+umap_df2 %>%
+  mutate(color_gene_name = as.factor(as.character(ifelse(gene_id %in% list_gene, "top", cluster)))) %>% 
+  pivot_longer(cols = c("dox0","dox0125", "dox0187", "dox021", "dox025", "dox075")) %>%
+  mutate(name = factor(name, levels = c("dox0","dox0125", "dox0187", "dox021", "dox025", "dox075"))) %>%
+  mutate(label_junction = case_when(name == "dox025" & color_gene_name == "top" ~ gene_id, T ~ "")) %>%
+  ggplot(mapping = aes(x = name, y = value, group = paste_into_igv_junction)) +
+  geom_line(aes(color = color_gene_name, alpha = delta_psi, linewidth = type, linetype = slopenes)) +
+  geom_text_repel(aes(label = label_junction), #point.padding = 0.3, 
+                  min.segment.length = 0.5, 
+                  #box.padding  = 2, 
+                  max.overlaps = Inf, show.legend = F) +
+  geom_hline(yintercept = 0.15, linetype = "dotted") +
+  #scale_color_manual(values = c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#000000")) + #
+  #scale_alpha_manual(values = c(0.1,1)) +
+  xlab("TDP-43 knockdown level") +
+  ylab("PSI") +
+  scale_x_discrete(labels = c("-", "+", "++", "+++", "++++", "+++++")) +
+  scale_y_continuous(breaks=seq(0,1,0.2)) +
+  #scale_color_brewer(palette = "Set2") +
+  scale_color_manual(values = c("#66C2A5", "#FC8D62", "#8DA0CB", "#E78AC3", "#A6D854", "#FFD92F","#E5C494", "black")) +
+  scale_linewidth_discrete(range = c(1,0.2)) +
+  scale_alpha_continuous(range = c(0.2,0.8)) +
+  scale_linetype_manual(values = c("dashed", "solid")) +
+  facet_grid(rows = vars(cluster), cols = vars(type)) +
+  #facet_grid(rows = vars(max_psi_2), cols = vars(slopenes)) +
+  theme_classic()
+
+```
+
+january 2024
+```{r}
+sy5y_full <- readxl::read_xlsx("~/Google Drive/My Drive/backup/Documents/phd/research_lines/tdp-43 curves/manual_validation_curves/validation_curves.xlsx") %>% 
+  filter(!is.na(gene_id)) %>% 
+  mutate(paste_into_igv_junction = paste0(chr, ":", start, "-", end)) %>% 
+  dplyr::select(c(4,6,8,9,10,12,14:19,24)) ###485
+names(sy5y_full)[2] <- "dox0"
+  
+dz_full <- readxl::read_xlsx("~/Google Drive/My Drive/backup/Documents/phd/research_lines/tdp-43 curves/manual_validation_curves/dz_to_validate.xlsx") %>% ##change to sheet 3
+  filter(!is.na(gene_id)) %>% 
+  mutate(paste_into_igv_junction = paste0(chr, ":", start, "-", end)) %>% 
+  dplyr::select(c(4,6,8,9,10,11,13:21)) ###344
+names(dz_full)[2] <- "dox0"
+
+#overlap <- full_join(sy5y_full, dz_full, by = "paste_into_igv_junction") ##1245
+#table(overlap$Type.y) #,overlap$Type.y)
+
+
+###manipulate - CEs only - then do all events
+sy5y_full_annot <- sy5y_full %>% 
+  #filter(cryptic == "yes") %>% 
+  mutate(dox0125 = ifelse(dox0125_vs_nt - dox0 < -0.05,         dox0,                   dox0 + dox0125_vs_nt),
+         dox0187 = ifelse(dox0187_vs_nt - dox0125_vs_nt < -0.05, dox0 + dox0125_vs_nt,  dox0 + dox0187_vs_nt),
+         dox021  = ifelse(dox021_vs_nt  - dox0187_vs_nt < -0.05, dox0 + dox0187_vs_nt,  dox0 + dox021_vs_nt),
+         dox025  = ifelse(dox025_vs_nt  - dox021_vs_nt < -0.05,  dox0 + dox021_vs_nt,   dox0 + dox025_vs_nt ),
+         dox075  = ifelse(dox075_vs_nt  - dox025_vs_nt  < -0.05,  dox0 + dox025_vs_nt,   dox0 + dox075_vs_nt)) %>%
+  mutate(dox0125 = ifelse(dox0125 -  dox0 < -0.05,  dox0, dox0125),
+         dox0187 = ifelse(dox0187 - dox0125 < -0.05, dox0125, dox0187),
+         dox021 = ifelse(dox021 - dox0187 < -0.05, dox0187, dox021),
+         dox025 = ifelse(dox025 - dox021 < -0.05, dox021, dox025),
+         dox075 = ifelse(dox075 - dox025 < -0.05, dox025, dox075)) %>%
+  mutate(delta_psi = dox075-dox0) %>%
+  mutate(normed_dox0 = 0,
+         normed_dox0125 = dox0125 / dox075,
+         normed_dox0187 = dox0187 / dox075,
+         normed_dox021 = dox021 / dox075,
+         normed_dox025 = dox025 / dox075,
+         normed_dox075 = 1) %>% 
+  mutate(ID=dplyr::row_number()) %>%
+  dplyr::select(c(1:6,12:18))
+  #mutate(label_junction = ifelse(paste_into_igv_junction %in% overlap$paste_into_igv_junction, "overlap", "not_overlap"))
+#%>% 
+#  mutate(type = ifelse((dox0125-dox0 > 0.15 | dox0187-dox0 > 0.4) & dox025-dox0 > 0.4, "Earli", 
+#                       ifelse(dox0187-dox0 > 0.15, "Early",
+#                              ifelse(dox025-dox0 < 0.10, "Late", "Intermediate")))) %>% 
+#                              #ifelse(`dox021.vs.nt` > 0.15 | `dox025.vs.nt` > 0.15, "Intermediate", "Late")))) %>%
+#  mutate(type_normal = ifelse(normed_dox0125 > 0.2, "Earli", 
+#                       ifelse(normed_dox0187 > 0.2, "Early",
+#                              ifelse(normed_dox021 > 0.2 | normed_dox025 > 0.2, "Intermediate", "Late")))) %>%
+#  mutate(delta_psi_max = ntile(delta_psi, 100)) %>% 
+#  mutate(max_psi_2 = ifelse(delta_psi > 0.6, "top_max_psi", 
+#                          #ifelse(delta_psi > 0.3, "mid_max_psi", 
+#                                 "bottom_max_psi")) %>% 
+#  mutate(max_psi = ifelse(delta_psi_max > 58, "Top",
+#                          ifelse(delta_psi_max > 30, "Medium", 
+#                                 "Bottom"))) %>% 
+#  mutate(max_slope = pmax(dox075-dox025, dox025-dox021, dox021-dox0187, dox0187-dox0125, dox0125-dox0)) %>%
+#  mutate(percentile = ntile(max_slope, 100)) %>%
+#  mutate(slopenes = as.character(ifelse(percentile > 50, "steep_slope",
+#                                                         #ifelse(percentile > 30, "stedd_slope", 
+#                                        "steady_slope"))) 
+
+###same on dz
+dz_full_annot <- dz_full %>% 
+  #filter(cryptic == "yes") %>% 
+  mutate(dox002 = ifelse(dz002_vs_nt - dox0 < -0.05,         dox0,                   dox0 + dz002_vs_nt),
+         dox003 = ifelse(dz003_vs_nt - dz002_vs_nt < -0.05, dox0 + dz002_vs_nt,  dox0 + dz003_vs_nt),
+         dox004  = ifelse(dz004_vs_nt - dz003_vs_nt < -0.05, dox0 + dz003_vs_nt,  dox0 + dz004_vs_nt),
+         dox005  = ifelse(dz005_vs_nt - dz004_vs_nt < -0.05, dox0 + dz004_vs_nt,  dox0 + dz005_vs_nt),
+         dox0075  = ifelse(dz075_vs_nt - dz005_vs_nt < -0.05, dox0 + dz005_vs_nt,  dox0 + dz075_vs_nt),
+         dox01 = ifelse(dz01_vs_nt - dz075_vs_nt < -0.05, dox0 + dz075_vs_nt,  dox0 + dz01_vs_nt),
+         dox1 = ifelse(dz1_vs_nt - dz01_vs_nt < -0.05, dox0 + dz01_vs_nt,  dox0 + dz1_vs_nt)) %>%
+  mutate(dox002 = ifelse(dox002 -  dox0 < -0.05,  dox0, dox002),
+         dox003 = ifelse(dox003 - dox002 < -0.05, dox002, dox003),
+         dox004 = ifelse(dox004 - dox003 < -0.05, dox003, dox004),
+         dox005 = ifelse(dox005 - dox004 < -0.05, dox004, dox005),
+         dox0075 = ifelse(dox0075 - dox005 < -0.05, dox005, dox0075),
+         dox01 = ifelse(dox01 - dox0075 < -0.05, dox0075, dox01),
+         dox1 = ifelse(dox1 - dox01 < -0.05, dox01, dox1)) %>%
+  mutate(delta_psi = dox1-dox0) %>%
+  mutate(normed_dox0 = 0,
+         normed_dox002 = dox002 / dox1,
+         normed_dox003 = dox003 / dox1,
+         normed_dox004 = dox004 / dox1,
+         normed_dox005 = dox005 / dox1,
+         normed_dox0075 = dox0075 / dox1,
+         normed_dox01 = dox01 / dox1,
+         normed_dox1 = 1) %>% 
+  mutate(ID=dplyr::row_number()) %>% 
+  dplyr::select(c(1:6,14:22))
+#  mutate(type = ifelse((dox002-dox0 > 0.15 | dox003-dox0 > 0.3) & dox1-dox0 > 0.4, "Earli", 
+#                       ifelse(dox003-dox0 > 0.15 | dox004-dox0 > 0.15, "Early",
+#                              ifelse(dox005-dox0 < 0.10, "Late", "Intermediate")))) %>% 
+                              #ifelse(`dox021.vs.nt` > 0.15 | `dox025.vs.nt` > 0.15, "Intermediate", "Late")))) %>%
+  #mutate(type_normal = ifelse(normed_dox0125 > 0.2, "Earli", 
+  #                     ifelse(normed_dox0187 > 0.2, "Early",
+  #                            ifelse(normed_dox021 > 0.2 | normed_dox025 > 0.2, "Intermediate", "Late")))) %>%
+#  mutate(delta_psi_max = ntile(delta_psi, 100)) %>% 
+#  mutate(max_psi_2 = ifelse(delta_psi > 0.6, "top_max_psi", 
+#                          #ifelse(delta_psi > 0.3, "mid_max_psi", 
+#                                 "bottom_max_psi")) %>% 
+#  mutate(max_psi = ifelse(delta_psi_max > 58, "Top",
+#                          ifelse(delta_psi_max > 30, "Medium", 
+#                                 "Bottom"))) %>% 
+#  mutate(max_slope = pmax(dox1 - dox01, dox01 - dox0075, dox0075 - dox005, dox005 - dox004, 
+#                          dox004 - dox003, dox003 - dox002, dox002 -  dox0)) %>%
+#  mutate(percentile = ntile(max_slope, 100)) %>%
+#  mutate(slopenes = as.character(ifelse(percentile > 50, "steep_slope",
+#                                                         #ifelse(percentile > 30, "stedd_slope", 
+#                                        "steady_slope")))
+
+#overlap <- full_join(sy5y_full_annot, dz_full_annot, by = "paste_into_igv_junction") ##130
+
+{
+##plot sy5y events that are not in dz
+sy5y_full_annot %>% 
+  pivot_longer(cols = c("dox0","dox0125", "dox0187", "dox021", "dox025", "dox075")) %>%
+  #mutate(name = factor(name, levels = c("no_dox","dox_0125", "dox_0187", "dox_021", "dox_025", "dox_075"))) %>%
+  ggplot(mapping = aes(x = name, y = value, group = paste_into_igv_junction)) +
+  geom_line(show.legend = F) +
+  facet_wrap(validation ~ label_junction) +
+  theme_bw()
+table(sy5y_full_annot$validation, sy5y_full_annot$label_junction) ###check events that are not validated in dzs and pull
+###check events that overlap with validated dzs but are not validated in sy5y
+
+dz_full_annot %>% 
+  pivot_longer(cols = c("dox0","dox0125", "dox0187", "dox021", "dox025", "dox075")) %>%
+  #mutate(name = factor(name, levels = c("no_dox","dox_0125", "dox_0187", "dox_021", "dox_025", "dox_075"))) %>%
+  mutate(label_junction = ifelse(paste_into_igv_junction %in% overlap$paste_into_igv_junction, "overlap", "not_overlap")) %>% 
+  ggplot(mapping = aes(x = name, y = value, group = paste_into_igv_junction)) +
+  geom_line(show.legend = F) +
+  facet_wrap(cryptic ~ label_junction) +
+  theme_bw()
+
+
+##clustering sy5y
+mtcars_numeric_sy5y <- sy5y_full_annot[,c(2,12:16)] 
+
+# Run UMAP on the numeric columns
+set.seed(420)
+umap_result <- umap(mtcars_numeric_sy5y, n_neighbors = 14, min_dist = 10^(-6)) # n_neighbors = 12, min_dist = 0.00000001
+
+# Create a data frame with UMAP results
+umap_df <- data.frame(umap_result$layout)
+colnames(umap_df) <- c("UMAP_1", "UMAP_2")
+
+dbscanning <- dbscan(umap_result$layout, eps = 1, minPts = 12)
+dbscanning
+umap_df$cluster <- factor(dbscanning$cluster)
+ggplot(umap_df, aes(x = UMAP_1, y = UMAP_2, color = cluster)) +
+  geom_point() +
+  #geom_text_repel(aes(label = gene_id), color = "black", max.overlaps = Inf) +
+  #labs(title = "") +
+  scale_color_brewer(palette = "Set2") +
+  theme_minimal()
+umap_df2 <- umap_df %>% rownames_to_column("ID") %>%
+  mutate(ID = as.integer(ID)) %>%
+  right_join(sy5y_full_annot)
+#table(umap_df2$cluster, umap_df2$type) ###missing type
+
+for (i in c(6,16:20)) {
+  #i = 6
+  umap_df3 <- umap_df2[,c(2,3,4,i)]
+  p <- umap_df3 %>% 
+    ggplot(aes(x = UMAP_1, y = UMAP_2, color = umap_df3[,4])) +
+    geom_point() +
+    theme_bw() +
+    labs(color = colnames(umap_df3)[4])
+  plot(p)
+}
+
+
+
+##clustering dz
+mtcars_numeric_dz <- dz_full_annot[,c(2,17:23)]#[,c(3:8)] #[,c(18:23)]#
+
+# Run UMAP on the numeric columns
+set.seed(420)
+umap_result_dz <- umap(mtcars_numeric_dz, n_neighbors = 24, min_dist = 10^(-6))
+
+# Create a data frame with UMAP results
+umap_dz <- data.frame(umap_result_dz$layout)
+colnames(umap_dz) <- c("UMAP_1", "UMAP_2")
+
+dbscanning_dz <- dbscan(umap_result_dz$layout, eps = 1, minPts = 14)
+dbscanning_dz
+umap_dz$cluster <- factor(dbscanning_dz$cluster)
+ggplot(umap_dz, aes(x = UMAP_1, y = UMAP_2, color = cluster)) +
+  geom_point() +
+  #geom_text_repel(aes(label = gene_id), color = "black", max.overlaps = Inf) +
+  #labs(title = "") +
+  scale_color_brewer(palette = "Set2") +
+  theme_minimal()
+umap_dz2 <- umap_dz %>% rownames_to_column("ID") %>%
+  mutate(ID = as.integer(ID)) %>%
+  right_join(dz_full_annot)
+#table(umap_dz2$cluster, umap_dz2$type) ###missing type
+
+
+###how do they overlap cluster wise? do a correlation/map for clusters
+overlap_clusters <- inner_join(umap_df2,umap_dz2, by = "paste_into_igv_junction")
+table(overlap_clusters$cluster.x, overlap_clusters$cluster.y)
+
+list_gene = c("ADCY1", "INSR", "RPTOR", "NUP188", "RANBP1", "KCNQ2", "EPB41L4A", "GPSM2", "PRELID3A", 
+  "STMN2", "SYT7","UNC13A","CELF5", "ELAVL3", "HDGFL2", "IQCE", "KALRN", "MGAT5B", "TRRAP",
+              "AARS1","AKT3", "ATG4B", "CDK7", "PHF2", "ADGRL1",  "RSF1")
+
+overlap_clusters %>% 
+  mutate(color_gene_name = as.factor(as.character(ifelse(gene_id.x %in% list_gene, gene_id.x, NA)))) %>% 
+  ggplot(aes(x = UMAP_1.x+UMAP_1.y, y = UMAP_2.x+UMAP_2.y)) + # + or - ?
+  geom_point(aes(color = cluster.x, shape = cluster.y, alpha = cryptic.x), size = 4) +
+  geom_text(aes(label = color_gene_name)) +
+  geom_smooth(method = "lm") +
+  ggpubr::stat_cor(method = "spearman") +
+  #facet_wrap(vars(cluster.x, cluster.y), scales = "free") +
+  theme_bw()
+
+overlap_clusters %>% 
+  mutate(color_gene_name = as.factor(as.character(ifelse(gene_id.x %in% list_gene, gene_id.x, NA)))) %>% 
+  ggplot(aes(x = UMAP_1.x+UMAP_1.y, y = UMAP_2.x+UMAP_2.y)) + # + or - ?
+  geom_point(aes(color = cluster.x, shape = cluster.y, alpha = cryptic.x), size = 2) +
+  geom_text(aes(label = color_gene_name)) +
+  #geom_smooth(method = "lm") +
+  #ggpubr::stat_cor(method = "spearman") +
+  facet_wrap(vars(cluster.x, cluster.y)) +
+  theme_bw()
+
+
+## 5 events are cryptic in the sy5y dataset and not in the dz one
+hello <- as.data.frame(table(overlap_clusters$cryptic.x, overlap_clusters$cryptic.y, overlap_clusters$gene_id.x)) %>% 
+  filter(Freq > 0)
+table(overlap_clusters$cryptic.x, overlap_clusters$cryptic.y)
+}
+
+###plot the drivers of variance
+
+
+#pca
+#pheatmap::pheatmap(overlap_data, cluster_cols = F)
+#pca.pros <- prcomp(overlap_data, scale = TRUE, center = TRUE)
+#pca.pros
+#summary(pca.pros)
+#lm(psi ~ level + cell_type + cryptic ... nmd)
+
+
+
+
+
+
+
+
+###combine data before clustering
+###try and include non validated events in either cell line, then remove cryptics
+
+list_gene = c("ADCY1", "INSR", "RPTOR", "NUP188", "RANBP1", "KCNQ2", "EPB41L4A", "GPSM2", "PRELID3A", 
+  "STMN2", "SYT7","UNC13A","CELF5", "ELAVL3", "HDGFL2", "IQCE", "KALRN", "MGAT5B", "TRRAP",
+              "AARS1","AKT3", "ATG4B", "CDK7", "PHF2", "ADGRL1",  "RSF1")
+
+overlap <- full_join(sy5y_full_annot, dz_full_annot, by = "paste_into_igv_junction") %>%
+  filter(validation.x == "yes" | validation.y == "yes") 
+#write.csv(overlap, "~/Desktop/overlap.csv")
+
+###only 1 junction per intron
+
+overlap_checked <- read.csv("~/Desktop/overlap.csv") %>% 
+  #filter(cryptic.x == "yes" | cryptic.y == "yes") %>% 
+  filter(validation_junction == "yes") %>% 
+  mutate(gene_id = ifelse(!is.na(gene_id.x), gene_id.x, gene_id.y),
+         junction_id = ifelse(!is.na(junc_cat.x), junc_cat.x, junc_cat.y),
+         cryptic_id = ifelse(!is.na(cryptic.y), cryptic.y, cryptic.x)) %>% 
+  #group_by(gene_id) %>% 
+  #arrange(desc(pmax(dox075-dox0.x, dox1-dox0.y))) %>% 
+  #distinct(junction_id, .keep_all = T) %>%                                         #643
+  #ungroup() %>% 
+  mutate(ID=dplyr::row_number()) %>% 
+  mutate(color_gene_name = ifelse(gene_id %in% list_gene, paste0(gene_id, "_", junction_id), NA)) 
+  
+
+{
+#umap + dbscan
+overlap_data <- overlap_checked[,c(2,9:13,15,21:27)]
+#mean(as.matrix(overlap_data))
+#overlap_data %>% summarise_all(mean)
+overlap_data [is.na(overlap_data )] <- 0
+  
+set.seed(420)
+umap_result_overlap <- umap(overlap_data, n_neighbors = 12, min_dist = 10^(-9)) # n_neighbors = 12, min_dist = 0.00000001
+umap_df_overlap <- data.frame(umap_result_overlap$layout)
+colnames(umap_df_overlap) <- c("UMAP_1", "UMAP_2")
+
+dbscanning_overlap <- dbscan(umap_result_overlap$layout, eps = 0.8, minPts = 12)
+dbscanning_overlap
+umap_df_overlap$cluster <- factor(dbscanning_overlap$cluster)
+
+#DBSCAN clustering for 505 objects.
+#Parameters: eps = 0.8, minPts = 12
+#Using euclidean distances and borderpoints = TRUE
+#The clustering contains 6 cluster(s) and 3 noise points.
+#  0   1   2   3   4   5   6 
+#  3  88 170 102  41  12  89 
+#group 4,5,6, move 0s to ..
+
+umap_df2_overlap <- umap_df_overlap %>% rownames_to_column("ID") %>%
+  mutate(ID = as.integer(ID)) %>%
+  right_join(overlap_checked, by = "ID")
+
+umap_df2_overlap %>% 
+  ggplot(aes(x = UMAP_1, y = UMAP_2)) +
+  geom_point(aes(color = cluster)) +
+  geom_text_repel(aes(label = color_gene_name), max.overlaps = Inf) +
+  #scale_color_brewer(palette = "Set2") +
+  theme_minimal()
+
+long_umap_df2_overlap <- umap_df2_overlap %>% 
+  pivot_longer(cols = c(6,13:17,19,25:31)) %>% 
+  mutate(cell_line = ifelse(name %in% c("dox0.x", "dox0125", "dox0187", "dox021", "dox025", "dox075"), "SY5Y", "DZ")) 
+
+long_umap_df2_overlap %>% 
+  ggplot(aes(x = name, y = value, color = cluster, linetype = cryptic_id, group = paste_into_igv_junction)) +
+  geom_line() +
+  facet_wrap(cluster ~ cell_line, scales = "free_x") +
+  scale_linetype_manual(values = c("dotted", "solid")) +
+  theme_bw()
+
+umap_df2_all <- umap_df2_overlap %>% 
+  mutate(cluster = as.numeric(cluster)) %>% 
+  mutate(cluster_edit = as.factor(ifelse(cluster == 1, 2,
+                               ifelse(cluster %in% c(5,6,7), 5,
+                                  cluster))))
+
+umap_df2_all %>% 
+  pivot_longer(cols = c(6,13:17,19,25:31)) %>% 
+  mutate(cell_line = ifelse(name %in% c("dox0.x", "dox0125", "dox0187", "dox021", "dox025", "dox075"), "SY5Y", "DZ")) %>% 
+  ggplot(aes(x = name, y = value, color = cluster_edit, linetype = cryptic_id, group = paste_into_igv_junction)) +
+  geom_line() +
+  facet_wrap(cryptic_id ~ cell_line, scales = "free_x", nrow = 2) +
+  scale_linetype_manual(values = c("dotted", "solid")) +
+  theme_bw()
+}
+  
+
+
+
+
+##again but with validated ce only - only one junction per intron
+overlap_ce <-  read.csv("~/Desktop/overlap.csv") %>% #full_join(sy5y_full_annot, dz_full_annot, by = "paste_into_igv_junction") 
+  filter(validation_junction == "yes") %>%  
+  #filter(validation.x == "yes" | validation.y == "yes") %>% 
+  filter(cryptic.x == "yes" | cryptic.y == "yes") %>% 
+mutate(gene_id = ifelse(!is.na(gene_id.x), gene_id.x, gene_id.y),
+         junction_id = ifelse(!is.na(junc_cat.x), junc_cat.x, junc_cat.y),
+         cryptic_id = ifelse(!is.na(cryptic.y), cryptic.y, cryptic.x)) %>%
+  filter(cryptic_id != "no") %>% 
+  group_by(gene_id) %>% 
+  arrange(desc(pmax(dox075-dox0.x, dox1-dox0.y))) %>% 
+  distinct(junction_id, .keep_all = T) %>%                          #282
+  ungroup() %>% 
+  mutate(ID=dplyr::row_number()) %>% 
+  mutate(color_gene_name = ifelse(gene_id %in% list_gene, paste0(gene_id, "_", junction_id), NA)) 
+  
+overlap_non_ce <- overlap_checked %>% 
+  filter(cryptic_id == "no") %>% 
+  dplyr::select(-ID) %>% 
+  mutate(ID=dplyr::row_number())
+
+
+#umap + dbscan
+#lm(y ~ x(dox_conc) + cell_type)
+
+overlap_data <- overlap_ce[,c(2,9:13,15,21:27)]
+overlap_data [is.na(overlap_data )] <- 0
+  
+set.seed(420)
+umap_result_overlap <- umap(overlap_data, n_neighbors = 12, min_dist = 10^(-9)) # n_neighbors = 12, min_dist = 0.00000001
+
+# Create a data frame with UMAP results
+umap_df_overlap <- data.frame(umap_result_overlap$layout)
+colnames(umap_df_overlap) <- c("UMAP_1", "UMAP_2")
+
+dbscanning_overlap <- dbscan(umap_result_overlap$layout, eps = 0.8, minPts = 12)
+dbscanning_overlap
+umap_df_overlap$cluster <- factor(dbscanning_overlap$cluster)
+
+#DBSCAN clustering for 215 objects.
+#Parameters: eps = 0.8, minPts = 12
+#Using euclidean distances and borderpoints = TRUE
+#The clustering contains 6 cluster(s) and 1 noise points.
+# 0  1  2  3  4  5  6 
+# 1 19 34 35 26 44 56 
+#group 3 and 5 and 4 and 6, move 0 to ...
+
+umap_df2_overlap <- umap_df_overlap %>% rownames_to_column("ID") %>%
+  mutate(ID = as.integer(ID)) %>%
+  right_join(overlap_ce, by = "ID")
+
+umap_df2_overlap %>% 
+  ggplot(aes(x = UMAP_1, y = UMAP_2)) +
+  geom_point(aes(color = cluster)) +
+  geom_text_repel(aes(label = color_gene_name), max.overlaps = Inf) +
+  #scale_color_brewer(palette = "Set2") +
+  theme_minimal()
+
+long_umap_df2_overlap <- umap_df2_overlap %>% 
+  pivot_longer(cols = c(6,13:17,19,25:31)) %>% 
+  mutate(cell_line = ifelse(name %in% c("dox0.x", "dox0125", "dox0187", "dox021", "dox025", "dox075"), "SY5Y", "DZ")) 
+
+long_umap_df2_overlap %>% 
+  ggplot(aes(x = name, y = value, color = cluster, group = paste_into_igv_junction)) +
+  geom_line() +
+  facet_wrap(cluster ~ cell_line, scales = "free_x") +
+  theme_bw()
+
+umap_df2_ce <- umap_df2_overlap %>% 
+  mutate(cluster = as.numeric(cluster)) %>% 
+  mutate(cluster_edit = as.factor(ifelse(cluster %in% c(1,3), "Intermediate-Late",
+                                         ifelse(cluster %in% c(5,7), "Late",
+                                                ifelse(cluster %in% c(4,6), "Intermediate-Early", "Early"))))) #, levels = c("Early", "Intermediate-Late", "Intermediate-Early", "Late")))
+
+#write.csv(umap_df2_ce, "~/Desktop/umap_results_ce.csv", row.names = F)
+umap_df2_ce %>% 
+  pivot_longer(cols = c(6,13:17,19,25:31)) %>% 
+  mutate(cell_line = ifelse(name %in% c("dox0.x", "dox0125", "dox0187", "dox021", "dox025", "dox075"), "SY5Y", "DZ")) %>%
+  ggplot(aes(x = name, y = value, color = cluster_edit, group = paste_into_igv_junction)) +
+  geom_line() +
+  facet_wrap(cluster_edit ~ cell_line, scales = "free_x", nrow = 2) +
+  theme_bw()
+#long_umap_df2_overlap %>% 
+#  ggplot(aes(x = cell_line, fill = cluster)) +
+#  geom_bar(stat = "count")
+
+umap_df2_ce %>% 
+  ggplot(aes(x = UMAP_1, y = UMAP_2)) +
+  geom_point(aes(color = cluster_edit)) +
+  geom_text_repel(aes(label = color_gene_name), max.overlaps = Inf) +
+  #scale_color_brewer(palette = "Set2") +
+  theme_minimal()
+```
+
+```{r}
+{
+####using inner join
+list_gene = c("ADCY1", "INSR", "RPTOR", "NUP188", "RANBP1", "KCNQ2", "EPB41L4A", "GPSM2", "PRELID3A", 
+  "STMN2", "SYT7","UNC13A","CELF5", "ELAVL3", "HDGFL2", "IQCE", "KALRN", "MGAT5B", "TRRAP",
+              "AARS1","AKT3", "ATG4B", "CDK7", "PHF2", "ADGRL1",  "RSF1")
+
+overlap <- inner_join(sy5y_full_annot, dz_full_annot, by = "paste_into_igv_junction") %>%
+  filter(validation.x == "yes" | validation.y == "yes") 
+#write.csv(overlap, "~/Desktop/overlap.csv")
+
+###only 1 junction per intron
+
+overlap_checked <- read.csv("~/Desktop/overlap.csv") %>% 
+  filter(validation_junction == "yes") %>% 
+  filter(cryptic.x == "yes" | cryptic.y == "yes") %>% 
+  filter(paste_into_igv_junction %in% overlap$paste_into_igv_junction) %>% 
+  mutate(gene_id = ifelse(!is.na(gene_id.x), gene_id.x, gene_id.y),
+         junction_id = ifelse(!is.na(junc_cat.x), junc_cat.x, junc_cat.y),
+         cryptic_id = ifelse(!is.na(cryptic.y), cryptic.y, cryptic.x)) %>% 
+  #group_by(gene_id) %>% 
+  #arrange(desc(pmax(dox075-dox0.x, dox1-dox0.y))) %>% 
+  #distinct(junction_id, .keep_all = T) %>%                                         #103
+  #ungroup() %>% 
+  mutate(ID=dplyr::row_number()) %>% 
+  mutate(color_gene_name = ifelse(gene_id %in% list_gene, paste0(gene_id, "_", junction_id), NA)) 
+  
+#umap + dbscan
+overlap_data <- overlap_checked[,c(2,9:13,15,21:27)]
+#mean(as.matrix(overlap_data))
+#overlap_data %>% summarise_all(mean)
+#overlap_data [is.na(overlap_data )] <- 0
+  
+set.seed(420)
+umap_result_overlap <- umap(overlap_data, n_neighbors = 12, min_dist = 10^(-9)) # n_neighbors = 12, min_dist = 0.00000001
+umap_df_overlap <- data.frame(umap_result_overlap$layout)
+colnames(umap_df_overlap) <- c("UMAP_1", "UMAP_2")
+
+dbscanning_overlap <- dbscan(umap_result_overlap$layout, eps = 1, minPts = 8)
+dbscanning_overlap
+umap_df_overlap$cluster <- factor(dbscanning_overlap$cluster)
+
+#DBSCAN clustering for 505 objects.
+#Parameters: eps = 0.8, minPts = 12
+#Using euclidean distances and borderpoints = TRUE
+#The clustering contains 6 cluster(s) and 3 noise points.
+#  0   1   2   3   4   5   6 
+#  3  88 170 102  41  12  89 
+#group 4,5,6, move 0s to ..
+
+umap_df2_overlap <- umap_df_overlap %>% rownames_to_column("ID") %>%
+  mutate(ID = as.integer(ID)) %>%
+  right_join(overlap_checked, by = "ID")
+
+umap_df2_overlap %>% 
+  ggplot(aes(x = UMAP_1, y = UMAP_2)) +
+  geom_point(aes(color = cluster)) +
+  geom_text_repel(aes(label = color_gene_name), max.overlaps = Inf) +
+  #scale_color_brewer(palette = "Set2") +
+  theme_minimal()
+
+long_umap_df2_overlap <- umap_df2_overlap %>% 
+  pivot_longer(cols = c(6,13:17,19,25:31)) %>% 
+  mutate(cell_line = ifelse(name %in% c("dox0.x", "dox0125", "dox0187", "dox021", "dox025", "dox075"), "SY5Y", "DZ")) 
+
+long_umap_df2_overlap %>% 
+  ggplot(aes(x = name, y = value, color = cluster, linetype = cryptic_id, group = paste_into_igv_junction)) +
+  geom_line() +
+  facet_wrap(cluster ~ cell_line, scales = "free_x") +
+  scale_linetype_manual(values = c("dotted", "solid")) +
+  theme_bw()
+
+umap_df2_all <- umap_df2_overlap %>% 
+  mutate(cluster = as.numeric(cluster)) %>% 
+  mutate(cluster_edit = as.factor(ifelse(cluster == 1, 2,
+                               ifelse(cluster %in% c(5,6,7), 5,
+                                  cluster))))
+
+umap_df2_all %>% 
+  pivot_longer(cols = c(6,13:17,19,25:31)) %>% 
+  mutate(cell_line = ifelse(name %in% c("dox0.x", "dox0125", "dox0187", "dox021", "dox025", "dox075"), "SY5Y", "DZ")) %>% 
+  ggplot(aes(x = name, y = value, color = cluster_edit, linetype = cryptic_id, group = paste_into_igv_junction)) +
+  geom_line() +
+  facet_wrap(cryptic_id ~ cell_line, scales = "free_x", nrow = 2) +
+  scale_linetype_manual(values = c("dotted", "solid")) +
+  theme_bw()
+}
+
+
+
+overlap_checked <- read.csv("~/Desktop/overlap.csv") %>% 
+  filter(validation_junction == "yes")
+
+###########################################
+##### do it separately
+###sy5y
+umap_sy5y <- sy5y_full_annot %>% ###92
+  filter(paste_into_igv_junction %in% overlap_checked$paste_into_igv_junction) %>% 
+  filter(cryptic == "yes") %>%
+  mutate(ID=dplyr::row_number()) %>%  ##485
+  mutate(color_gene_name = ifelse(gene_id %in% list_gene, gene_id, NA)) 
+
+set.seed(420)
+umap_result_overlap_sy5y <- umap(umap_sy5y[,c(2,9:13)], n_neighbors = 16, min_dist = 10^(-9)) # n_neighbors = 12, min_dist = 0.00000001
+umap_df_overlap_sy5y <- data.frame(umap_result_overlap_sy5y$layout)
+colnames(umap_df_overlap_sy5y) <- c("UMAP_1", "UMAP_2")
+
+dbscanning_overlap_sy5y <- dbscan(umap_result_overlap_sy5y$layout, eps = 1, minPts = 12)
+dbscanning_overlap_sy5y
+umap_df_overlap_sy5y$cluster <- factor(dbscanning_overlap_sy5y$cluster)
+
+umap_df2_overlap_sy5y <- umap_df_overlap_sy5y %>% rownames_to_column("ID") %>%
+  mutate(ID = as.integer(ID)) %>%
+  right_join(umap_sy5y, by = "ID")
+
+umap_df2_overlap_sy5y %>% 
+  ggplot(aes(x = UMAP_1, y = UMAP_2)) +
+  geom_point(aes(color = cluster)) +
+  geom_text_repel(aes(label = color_gene_name), max.overlaps = Inf) +
+  #scale_color_brewer(palette = "Set2") +
+  theme_minimal()
+
+umap_df2_overlap_sy5y %>% 
+  pivot_longer(cols = c(6,13:17)) %>% 
+  ggplot(aes(x = name, y = value, color = cluster, group = paste_into_igv_junction)) +
+  geom_line() +
+  facet_wrap(~cluster) +
+  theme_bw()
+
+
+
+
+##dz
+umap_dz <- dz_full_annot %>% 
+  filter(paste_into_igv_junction %in% overlap_checked$paste_into_igv_junction) %>% 
+  filter(cryptic == "yes") %>% 
+  mutate(ID=dplyr::row_number()) %>%  ##485
+  mutate(color_gene_name = ifelse(gene_id %in% list_gene, gene_id, NA)) 
+
+set.seed(420)
+umap_result_overlap_dz <- umap(umap_dz[,c(2,9:15)], n_neighbors = 16, min_dist = 10^(-9)) # n_neighbors = 12, min_dist = 0.00000001
+umap_df_overlap_dz <- data.frame(umap_result_overlap_dz$layout)
+colnames(umap_df_overlap_dz) <- c("UMAP_1", "UMAP_2")
+
+dbscanning_overlap_dz <- dbscan(umap_result_overlap_dz$layout, eps = 1, minPts = 12)
+dbscanning_overlap_dz
+umap_df_overlap_dz$cluster <- factor(dbscanning_overlap_dz$cluster)
+
+umap_df2_overlap_dz <- umap_df_overlap_dz %>% rownames_to_column("ID") %>%
+  mutate(ID = as.integer(ID)) %>%
+  right_join(umap_dz, by = "ID")
+
+umap_df2_overlap_dz %>% 
+  ggplot(aes(x = UMAP_1, y = UMAP_2)) +
+  geom_point(aes(color = cluster)) +
+  geom_text_repel(aes(label = color_gene_name), max.overlaps = Inf) +
+  #scale_color_brewer(palette = "Set2") +
+  theme_minimal()
+
+umap_df2_overlap_dz %>% 
+  pivot_longer(cols = c(6,13:19)) %>% 
+  ggplot(aes(x = name, y = value, color = cluster, group = paste_into_igv_junction)) +
+  geom_line() +
+  facet_wrap(~cluster) +
+  theme_bw()
+
+
+
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+##merged again
+overlap_overlap <- full_join(umap_df2_overlap_sy5y, umap_df2_overlap_dz, by = "paste_into_igv_junction")
+
+overlap_overlap %>% 
+  ggplot(aes(x = UMAP_1.x+UMAP_1.y, y = UMAP_2.x+UMAP_2.y, color = cluster.x, shape = cluster.y)) +
+  geom_point() +
+  #facet_wrap(cluster.x ~ cluster.y) +
+  theme_bw()
+
+
+table(overlap_overlap$cluster.x, overlap_overlap$cluster.y)
+
+```
+
+
+
+
+```{r}
+#UMAP
+#mtcars_meta <- manual_validation_sy5y %>%
+#  dplyr::select(ID, gene_id, is_cryptic, junc_cat, type, type_normal, paste_into_igv_junction)
+mtcars_numeric <- manual_validation_sy5y_distinct[,c(3,12:16)]#[,c(3:8)] #[,c(18:23)]#
+
+# Run UMAP on the numeric columns
+set.seed(420)
+umap_result <- umap(mtcars_numeric, n_neighbors = 12, min_dist = 0.000001)
+
+# Create a data frame with UMAP results
+umap_df <- data.frame(umap_result$layout)
+colnames(umap_df) <- c("UMAP_1", "UMAP_2")
+
+library(dbscan)
+dbscanning <- dbscan(umap_result$layout, eps = 0.8, minPts = 8)
+dbscanning
+umap_df$cluster <- factor(dbscanning$cluster)
+ggplot(umap_df, aes(x = UMAP_1, y = UMAP_2, color = cluster)) +
+  geom_point() +
+  #geom_text_repel(aes(label = gene_id), color = "black", max.overlaps = Inf) +
+  #labs(title = "") +
+  scale_color_brewer(palette = "Set2") +
+  theme_minimal()
+
+#plot_curves_with clusters
+umap_df2 <- umap_df %>% rownames_to_column("ID") %>%
+  mutate(ID = as.integer(ID)) %>%
+  right_join(manual_validation_sy5y_distinct)
+table(umap_df2$cluster, umap_df2$type)
+
+list_gene = c("AARS1", "STMN2", "INSR", "UNC13A", "HDGFL2", "RPTOR", "NUP188", "RANBP1", "ATG4B", "KCNQ2")
+umap_df2 %>%
+  mutate(color_gene_name = as.factor(as.character(ifelse(gene_id %in% list_gene, "top", type)))) %>% 
+  mutate(label_junction = case_when(color_gene_name == "top" ~ gene_id, T ~ "")) %>% 
+  ggplot(aes(x = UMAP_1, y = UMAP_2)) +
+  geom_point(aes(color = cluster, alpha = max_slope, shape = type, size = delta_psi)) +
+  geom_text_repel(aes(label = label_junction), color = "black", 
+                  point.padding = 0.3, min.segment.length = 0.5, 
+                  box.padding  = 2, max.overlaps = Inf, show.legend = F) +
+  #labs(title = "") +
+  #facet_wrap(facets = vars(type)) +
+  scale_alpha_continuous(range = c(0.4,1)) +
+  scale_color_brewer(palette = "Set2") +
+  theme_minimal()
+
+#umap_df2 %>% select(gene_id, cluster, type, type_normal, UMAP_1, UMAP_2, dox0, dox0125, dox0187, dox021, dox025, dox075, ) %>% View()
+
+umap_df2 %>%
+  mutate(color_gene_name = as.factor(as.character(ifelse(gene_id %in% list_gene, "top", type)))) %>% 
+  pivot_longer(cols = c("dox0","dox0125", "dox0187", "dox021", "dox025", "dox075")) %>%
+  mutate(name = factor(name, levels = c("dox0","dox0125", "dox0187", "dox021", "dox025", "dox075"))) %>%
+  mutate(label_junction = case_when(name == "dox025" & color_gene_name == "top" ~ gene_id, T ~ "")) %>%
+  ggplot(mapping = aes(x = name, y = value, group = paste_into_igv_junction)) +
+  geom_line(aes(color = cluster,  alpha = delta_psi, linewidth = max_slope, linetype = type)) +
+  geom_text_repel(aes(label = label_junction), point.padding = 0.3, min.segment.length = 0.5, 
+                  box.padding  = 2, max.overlaps = Inf, show.legend = F) +
+  geom_hline(yintercept = 0.15, linetype = "dotted") +
+  #scale_color_manual(values = c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#000000")) + #
+  #scale_alpha_manual(values = c(0.1,1)) +
+  xlab("TDP-43 knockdown level") +
+  ylab("PSI") +
+  scale_x_discrete(labels = c("-", "+", "++", "+++", "++++", "+++++")) +
+  scale_y_continuous(breaks=seq(0,1,0.2)) +
+  scale_color_brewer(palette = "Set2") +
+  #scale_color_manual(values = c("#44729D","#D48640","#539045","#B14743", "black")) +
+  scale_linewidth_continuous(range = c(0.2,1)) +
+  facet_grid(rows = vars(cluster)) + #, cols = vars(type)) +
+  #facet_grid(rows = vars(max_psi_2), cols = vars(slopenes)) +
+  #  labels = c(0,0.2,0.4,0.6,0.8,1)) +
+  theme_classic()
+
+umap_df2 %>%
+  mutate(color_gene_name = as.factor(as.character(ifelse(gene_id %in% list_gene, "top", cluster)))) %>% 
+  pivot_longer(cols = c("dox0","dox0125", "dox0187", "dox021", "dox025", "dox075")) %>%
+  mutate(name = factor(name, levels = c("dox0","dox0125", "dox0187", "dox021", "dox025", "dox075"))) %>%
+  mutate(label_junction = case_when(name == "dox025" & color_gene_name == "top" ~ gene_id, T ~ "")) %>%
+  ggplot(mapping = aes(x = name, y = value, group = paste_into_igv_junction)) +
+  geom_line(aes(color = color_gene_name, alpha = delta_psi, linewidth = type, linetype = slopenes)) +
+  geom_text_repel(aes(label = label_junction), point.padding = 0.3, min.segment.length = 0.5, 
+                  box.padding  = 2, max.overlaps = Inf, show.legend = F) +
+  geom_hline(yintercept = 0.15, linetype = "dotted") +
+  #scale_color_manual(values = c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#000000")) + #
+  #scale_alpha_manual(values = c(0.1,1)) +
+  xlab("TDP-43 knockdown level") +
+  ylab("PSI") +
+  scale_x_discrete(labels = c("-", "+", "++", "+++", "++++", "+++++")) +
+  scale_y_continuous(breaks=seq(0,1,0.2)) +
+  #scale_color_brewer(palette = "Set2") +
+  scale_color_manual(values = c("#66C2A5", "#FC8D62", "#8DA0CB", "#E78AC3", "#A6D854", "#FFD92F", "black")) +
+  scale_linewidth_discrete(range = c(1,0.2)) +
+  scale_alpha_continuous(range = c(0.2,0.8)) +
+  scale_linetype_manual(values = c("dashed", "solid")) +
+  #facet_grid(rows = vars(cluster)) + #, cols = vars(type)) +
+  #facet_grid(rows = vars(max_psi_2), cols = vars(slopenes)) +
+  theme_classic()
+
+```
+###additional notes on the above
+```{r}
+umap_df33 <- umap_df2 %>% 
+  mutate(cluster_UMAP = ifelse(UMAP_1 > 4.5, "Earli",
+                               ifelse(UMAP_2 > 2, "Early",
+                                      ifelse(UMAP_2 > -2.5, "Intermediate", "Late"))))
+
+
+umap_df2 %>%
+  pivot_longer(cols = c(7,16:20)) %>% #View()# %>%
+  ggplot() +
+  geom_line(aes(x = name, y = value), color = "black", alpha = 0.1) +
+  geom_line(aes(x = name, y = value, group = paste_into_igv_junction, color = cluster)) +
+  #labs(title = "") +
+  facet_wrap(vars(cluster), nrow = 2) +
+  scale_color_manual(values = c("#44729D","#D48640","#539045","#B14743")) +
+  #"#377EB8", "#E41A1C", "#984EA3", "#4DAF4A")) +
+  xlab("TDP-43 knockdown level") +
+  ylab("PSI") +
+  labs(color = "k-means \n cluster") +
+  scale_x_discrete(labels = c("-", "+", "++", "+++", "++++", "+++++")) +
+  scale_y_continuous(breaks=seq(0,1,0.2)) +
+  theme_bw() #+
+  #theme(axis.line.x = element_line(color = "black"))
+
+#with normalised values
+umap_df2 %>%
+  pivot_longer(cols = c(22:27)) %>% 
+  ggplot() +
+  geom_line(aes(x = name, y = value), color = "black", alpha = 0.1) +
+  geom_line(aes(x = name, y = value, group = paste_into_igv_junction, color = cluster)) +
+  #labs(title = "") +
+  facet_wrap(vars(cluster), nrow = 2) +
+  scale_color_manual(values = c("#44729D","#D48640","#539045","#B14743")) +
+  #"#377EB8", "#E41A1C", "#984EA3", "#4DAF4A")) +
+  xlab("TDP-43 knockdown level") +
+  ylab("PSI") +
+  labs(color = "k-means \n cluster") +
+  scale_x_discrete(labels = c("-", "+", "++", "+++", "++++", "+++++")) +
+  scale_y_continuous(breaks=seq(0,1,0.2)) +
+  theme_bw()
+
+mtcars_numeric <- manual_validation_sy5y[,c(19:24)]#[,c(3:8)] #
+# Run UMAP on the numeric columns
+set.seed(420)
+umap_result <- umap(mtcars_numeric, n_neighbors = 10, min_dist = 0.01)
+
+# Create a data frame with UMAP results
+umap_df <- data.frame(umap_result$layout)
+colnames(umap_df) <- c("UMAP_1", "UMAP_2")
+
+# Perform k-means clustering
+kmeans_clusters <- kmeans(mtcars_numeric, centers = 4)  # You can change the number of clusters as desired
+# Extract the cluster centroids
+centroids <- kmeans_clusters$centers
+# Identify variables responsible for clustering
+variable_importance <- apply(centroids, 2, var)  # Compute variance for each variable across clusters
+# Sort variables by importance (variance)
+variable_importance <- sort(variable_importance, decreasing = TRUE)
+# Display the variables responsible for clustering
+variable_importance
+
+
+
+# Add cluster assignments to the UMAP data frame
+umap_df$cluster <- as.factor(kmeans_clusters$cluster)
+# Plot UMAP with clusters using ggplot2
+
+umap_df2 <- umap_df %>% rownames_to_column("ID") %>%
+  mutate(ID = as.integer(ID)) %>%
+  right_join(manual_validation_sy5y)
+
+ggplot(umap_df2, aes(x = UMAP_1, y = UMAP_2, color = cluster)) +
+  geom_point() +
+  geom_text_repel(aes(label = gene_id), color = "black", max.overlaps = Inf) +
+  #labs(title = "") +
+  theme_minimal()
+
+
+
+
+
+
+umap_df_grc <- umap_df2 %>%
+  mutate(shade = T)
+umap_df3 <- umap_df2 %>%
+  mutate(shade = F)
+
+umap_df_plot <- rbind(umap_df_grc, umap_df3) %>%
+  pivot_longer(cols = c(7,16:20)) #%>%
+
+###general plot
+ggplot() +
+  #geom_line(data = umap_df_plot[umap_df_plot$shade == T & umap_df_plot$cluster == 2,], 
+  #          aes(x = name, y = value, group = paste_into_igv_junction, color = cluster), show.legend = F) +
+  geom_line(data = umap_df_plot[umap_df_plot$shade == F,], 
+            aes(x = name, y = value, group = paste_into_igv_junction), color = "black", alpha = 0.1) +
+  #scale_color_manual(values = c("#D48640")) +
+  xlab("TDP-43 knockdown level") +
+  ylab("PSI") +
+  #labs(color = "k-means \n cluster") +
+  scale_x_discrete(labels = c("-", "+", "++", "+++", "++++", "+++++")) +
+  scale_y_continuous(breaks=seq(0,1,0.2)) +
+  theme_bw()
+
+  #filter(cluster == 2 & shade == T | shade == F) #%>% #View()# %>%
+clust1 <- ggplot() +
+  geom_line(data = umap_df_plot[umap_df_plot$shade == F & umap_df_plot$cluster != 2,], 
+            aes(x = name, y = value, group = paste_into_igv_junction), color = "black", alpha = 0.1) +
+  geom_line(data = umap_df_plot[umap_df_plot$shade == T & umap_df_plot$cluster == 2,], 
+            aes(x = name, y = value, group = paste_into_igv_junction, color = cluster), show.legend = F) +
+  scale_color_manual(values = c("#D48640")) +
+  xlab("") +
+  ylab("") +
+#  labs(color = "k-means \n cluster") +
+  scale_x_discrete(labels = c("-", "+", "++", "+++", "++++", "+++++")) +
+  scale_y_continuous(breaks=seq(0,1,0.2)) +
+  theme_bw()
+
+clust2 <- ggplot() +
+  geom_line(data = umap_df_plot[umap_df_plot$shade == F & umap_df_plot$cluster != 1,],
+            aes(x = name, y = value, group = paste_into_igv_junction), color = "black", alpha = 0.1) +
+  geom_line(data = umap_df_plot[umap_df_plot$shade == T & umap_df_plot$cluster == 1,], 
+            aes(x = name, y = value, group = paste_into_igv_junction, color = cluster), show.legend = F) +
+  scale_color_manual(values = c("#44729D")) +
+  xlab("") +
+  ylab("") +
+#  labs(color = "k-means \n cluster") +
+  scale_x_discrete(labels = c("-", "+", "++", "+++", "++++", "+++++")) +
+  scale_y_continuous(breaks=seq(0,1,0.2)) +
+  theme_bw()
+
+clust3 <- ggplot() +
+  geom_line(data = umap_df_plot[umap_df_plot$shade == F & umap_df_plot$cluster != 4,], 
+            aes(x = name, y = value, group = paste_into_igv_junction), color = "black", alpha = 0.1) +
+  geom_line(data = umap_df_plot[umap_df_plot$shade == T & umap_df_plot$cluster == 4,], 
+            aes(x = name, y = value, group = paste_into_igv_junction, color = cluster), show.legend = F) +
+  scale_color_manual(values = c("#B14743")) +
+  xlab("") +
+  ylab("") +
+#  labs(color = "k-means \n cluster") +
+  scale_x_discrete(labels = c("-", "+", "++", "+++", "++++", "+++++")) +
+  scale_y_continuous(breaks=seq(0,1,0.2)) +
+  theme_bw()
+
+clust4 <- ggplot() +
+  geom_line(data = umap_df_plot[umap_df_plot$shade == F & umap_df_plot$cluster != 3,], 
+            aes(x = name, y = value, group = paste_into_igv_junction), color = "black", alpha = 0.1) +
+  geom_line(data = umap_df_plot[umap_df_plot$shade == T & umap_df_plot$cluster == 3,], 
+            aes(x = name, y = value, group = paste_into_igv_junction, color = cluster), show.legend = F) +
+  scale_color_manual(values = c("#539045")) +
+  xlab("") +
+  ylab("") +
+  #labs(color = "k-means \n cluster") +
+  scale_x_discrete(labels = c("-", "+", "++", "+++", "++++", "+++++")) +
+  scale_y_continuous(breaks=seq(0,1,0.2)) +
+  theme_bw()
+
+
+(clust1 + clust2) / (clust3 + clust4)
+
+
+#"#44729D"
+#"#D48640"
+#"#539045"
+#"#B14743"
+
+
+library(RColorBrewer)
+brewer.pal(name = "Set1", n = 4)
+table(umap_df2$Type, umap_df2$cluster)
+
+
+mt_meta <- names(manual_validation_sy5y)[c(3,12:16)]
+mt_meta2 <- as.data.frame(mt_meta) %>%
+  mutate(level = row_number()) %>%
+  column_to_rownames("mt_meta")
+pca_mt <- pca(mtcars_numeric)
+biplot(pca_mt)
+pca_mt <- PCAtools::pca(mtcars_numeric, removeVar = 0.1)
+screeplot(pca_mt, axisLabSize = 18, titleLabSize = 22)
+PCAtools::eigencorplot(pca_mt,components = getComponents(pca_mt), metavars = mt_meta2)
+#nice pca plot
+biplot(pca_mt,
+       x = "PC1",
+       y = "PC2",
+       colby = 'level')
+
+# Perform k-means clustering
+#kmeans_clusters <- kmeans(mtcars_numeric, centers = 4)  # You can change the number of clusters as desired
+# Extract the cluster centroids
+#centroids <- kmeans_clusters$centers
+# Identify variables responsible for clustering
+#variable_importance <- apply(centroids, 2, var)  # Compute variance for each variable across clusters
+# Sort variables by importance (variance)
+#variable_importance <- sort(variable_importance, decreasing = TRUE)
+# Display the variables responsible for clustering
+#variable_importance
+# Add cluster assignments to the UMAP data frame
+#umap_df$cluster <- as.factor(kmeans_clusters$cluster)
+# Plot UMAP with clusters using ggplot2
+#ggplot(umap_df, aes(x = UMAP_1, y = UMAP_2, color = cluster)) +
+#  geom_point() +
+#  #labs(title = "") +
+#  theme_minimal()
+
+```
+DZs
+```{r}
+####same but on my data
+#load df and manipulate
+manual_validation_dz <- read.table("~/Documents/phd/research_lines/tdp-43 curves/manual_validation_curves/dz_validated_events.ann.csv", sep = ",", header = T) %>%
+  mutate(paste_into_igv_junction = paste0(chr, ":", start, "-", end)) %>%
+  mutate(is_cryptic = ifelse(ref_psi < 0.05, 1, 0)) %>%
+  dplyr::select(c(24,4,6,11:15,23,16,8,9,18)) %>%
+  mutate(dox002 = ifelse(`dz002.vs.nt` - ref_psi < -0.05,         ref_psi,                   ref_psi + `dz002.vs.nt`),
+         dox003 = ifelse(`dz003.vs.nt` - `dz002.vs.nt` < -0.05, ref_psi + `dz002.vs.nt`, ref_psi + `dz003.vs.nt`),
+         dox004  = ifelse(`dz004.vs.nt`  - `dz003.vs.nt` < -0.05, ref_psi + `dz003.vs.nt`, ref_psi + `dz004.vs.nt`),
+         dox005  = ifelse(`dz005.vs.nt`  - `dz004.vs.nt` < -0.05,  ref_psi + `dz004.vs.nt`,  ref_psi + `dz005.vs.nt`),
+         dox0075  = ifelse(`dz075.vs.nt`  - `dz005.vs.nt` < -0.05,  ref_psi + `dz005.vs.nt`,  ref_psi + `dz075.vs.nt`),
+         dox01 = ifelse(`dz01.vs.nt`  - `dz075.vs.nt` < -0.05,  ref_psi + `dz075.vs.nt`,  ref_psi + `dz01.vs.nt`),
+         dox1 = ifelse(`dz1.vs.nt`  - `dz01.vs.nt` < -0.05,  ref_psi + `dz01.vs.nt`,  ref_psi + `dz1.vs.nt`)) %>%
+  mutate(dox002 = ifelse(dox002 - ref_psi < -0.05, ref_psi, dox002),
+         dox003 = ifelse(dox003 - dox002 < -0.05, dox002, dox003),
+         dox004 = ifelse(dox004 - dox003 < -0.05, dox003, dox004),
+         dox005 = ifelse(dox005 - dox004 < -0.05, dox004, dox005),
+         dox0075 = ifelse(dox0075 - dox005 < -0.05, dox005, dox0075),
+         dox01 = ifelse(dox01 - dox0075 < -0.05, dox0075, dox01),
+         dox1 = ifelse(dox1 - dox01 < -0.05, dox01, dox1)) %>%
+  mutate(delta_psi = dox1-ref_psi) %>%
+  mutate(ID=dplyr::row_number()) #%>%
+  #mutate(Type = ifelse(`dox0125.vs.nt` > 0.2 | `dox0187.vs.nt` > 0.4, "Earli", Type)) 
+#ifelse(Type == "Early" | Type == "Intermediate", "intermediate", "Late")))
+names(manual_validation_dz)[3] <- "dox0"
+#table(manual_validation_sy5y$type, manual_validation_sy5y$Type)
+
+mtcars_meta <- manual_validation_dz %>%
+  dplyr::select(ID, gene_id, is_cryptic, junc_cat, Type, paste_into_igv_junction)
+
+mtcars_numeric <- manual_validation_dz[,c(3,14:20)]#[,c(3:8)] #
+# Run UMAP on the numeric columns
+set.seed(420)
+umap_result <- umap(mtcars_numeric, n_neighbors = 10, min_dist = 0.01)
+
+# Create a data frame with UMAP results
+umap_df <- data.frame(umap_result$layout[,c(1,2)])
+colnames(umap_df) <- c("UMAP_1", "UMAP_2")
+
+# Perform k-means clustering
+kmeans_clusters <- kmeans(mtcars_numeric, centers = 4)  # You can change the number of clusters as desired
+# Extract the cluster centroids
+centroids <- kmeans_clusters$centers
+# Identify variables responsible for clustering
+variable_importance <- apply(centroids, 2, var)  # Compute variance for each variable across clusters
+# Sort variables by importance (variance)
+variable_importance <- sort(variable_importance, decreasing = TRUE)
+# Display the variables responsible for clustering
+variable_importance
+
+
+
+# Add cluster assignments to the UMAP data frame
+umap_df$cluster <- as.factor(kmeans_clusters$cluster)
+# Plot UMAP with clusters using ggplot2
+ggplot(umap_df, aes(x = UMAP_1, y = UMAP_2, color = cluster)) +
+  geom_point() +
+  #labs(title = "") +
+  theme_minimal()
+
+#plot_curves_with clusters
+umap_df2_dz <- umap_df %>% rownames_to_column("ID") %>%
+  mutate(ID = as.integer(ID)) %>%
+  right_join(manual_validation_dz)
+table(umap_df2$cluster, umap_df2$Type)
+
+umap_df2 %>%
+  pivot_longer(cols = c(7,18:24)) %>% #View()# %>%
+  ggplot() +
+  geom_line(aes(x = name, y = value), color = "black", alpha = 0.1) +
+  geom_line(aes(x = name, y = value, group = paste_into_igv_junction, color = cluster)) +
+  #labs(title = "") +
+  facet_wrap(vars(cluster), nrow = 2) +
+  scale_color_manual(values = c("#44729D","#D48640","#539045","#B14743")) +
+  #"#377EB8", "#E41A1C", "#984EA3", "#4DAF4A")) +
+  xlab("TDP-43 knockdown level") +
+  ylab("PSI") +
+  labs(color = "k-means \n cluster") +
+  scale_x_discrete(labels = c("-", "+", "++", "+++", "++++", "+++++", "++++++", "+++++++")) +
+  scale_y_continuous(breaks=seq(0,1,0.2)) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 15))
+    #axis.line.x = element_line(color = "black"))
+
+umap_df_grc <- umap_df2 %>%
+  mutate(shade = T)
+umap_df3 <- umap_df2 %>%
+  mutate(shade = F)
+
+umap_df_plot <- rbind(umap_df_grc, umap_df3) %>%
+  pivot_longer(cols = c(7,18:24)) #%>%
+
+###general plot
+ggplot() +
+  #geom_line(data = umap_df_plot[umap_df_plot$shade == T & umap_df_plot$cluster == 2,], 
+  #          aes(x = name, y = value, group = paste_into_igv_junction, color = cluster), show.legend = F) +
+  geom_line(data = umap_df_plot[umap_df_plot$shade == F,], 
+            aes(x = name, y = value, group = paste_into_igv_junction), color = "black", alpha = 0.1) +
+  #scale_color_manual(values = c("#D48640")) +
+  xlab("TDP-43 knockdown level") +
+  ylab("PSI") +
+  #labs(color = "k-means \n cluster") +
+  scale_x_discrete(labels = c("-", "+", "++", "+++", "++++", "+++++", "++++++", "+++++++")) +
+  scale_y_continuous(breaks=seq(0,1,0.2)) +
+  theme_bw()
+
+```

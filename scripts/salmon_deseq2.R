@@ -42,7 +42,7 @@
 
 outputdir = "~/Documents/Github/tdp43_concentration/results/deseq2/"
 #metadata_dir = "~/Documents/Github/tdp43_concentration/data/metadata_dz_curves.csv" ###make this
-tx2gene = "~/Desktop/rbp_bed/gencode.v40.tx2gene.csv"
+tx2gene = "/Users/matteozanovello/Documents/phd/research_lines/rbp_bed/gencode.v40.tx2gene.csv"
 column_name = "condition"
 baseline = 0
 contrast = 1
@@ -60,9 +60,9 @@ colnames(tx2gene) = c("TXNAME", "GENEID")
 
 #(1) First read in the metadata. if only a subset of the files are used, the opt$pattern option will be taken.
 
-salmon_deseq2 <- function(mutation, sample_dir, metadata_dir) {
+salmon_deseq2 <- function(mutation, sample_dir, metadata_dir_a) {
   
-metadata2 = metadata_dir %>% 
+metadata2 = metadata_dir_a %>% 
   #dplyr::select(sample, !!as.symbol(column_name)) %>% 
   dplyr::mutate(comparison_condition = case_when(!!as.symbol(column_name) == baseline ~ 'baseline',
                                           !!as.symbol(column_name) == contrast ~ 'contrast',
